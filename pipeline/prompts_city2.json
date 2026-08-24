@@ -1,0 +1,44 @@
+{
+  "_note": "City variety pass. Two complaints being fixed: every building reads as the same type, and the roads are bare asphalt with nothing on them.",
+  "_facades": "Six more facade types so a street is a mix rather than one building repeated. Same framing rules that worked in v2 - describe the WALL, forbid sky/ground/neighbours, camera perpendicular.",
+  "_road": "Road detail decals. Real streets have crossings, manhole covers, patched tarmac and worn arrows; ours has a centre line and nothing else.",
+
+  "steps": 2,
+  "seed": 4417,
+  "out": "city2",
+
+  "jobs": [
+    {
+      "id": "facade_glass_blue", "w": 512, "h": 1024,
+      "prompt": "Tightly cropped wall texture of a blue tinted glass office tower, the glass grid fills the entire frame edge to edge with no border, horizontal spandrel bands between floors, a scatter of lit offices, rain streaks on the glass, wet magenta and cyan neon reflections, night, flat elevation, camera perpendicular to the wall, zero perspective, no sky, no ground, no street, no horizon, no neighbouring buildings, no roofline, cropped architectural texture, photorealistic detail"
+    },
+    {
+      "id": "facade_warehouse", "w": 1024, "h": 512,
+      "prompt": "Tightly cropped wall texture of an old industrial warehouse wall, corrugated metal panels and painted brick, the wall fills the entire frame edge to edge with no border, high small dusty windows in a row, rusted patches, faded painted lettering, wet neon reflections, night, flat elevation, camera perpendicular to the wall, zero perspective, no sky, no ground, no street, no horizon, no neighbouring buildings, no roofline, cropped architectural texture, photorealistic detail"
+    },
+    {
+      "id": "facade_hotel", "w": 1024, "h": 1024,
+      "prompt": "Tightly cropped wall texture of a faded seafront hotel facade, painted render with balconies on every floor, the wall fills the entire frame edge to edge with no border, french doors, iron railings, warm lit rooms behind thin curtains, salt stained walls, wet neon reflections, night, flat elevation, camera perpendicular to the wall, zero perspective, no sky, no ground, no street, no horizon, no neighbouring buildings, no roofline, cropped architectural texture, photorealistic detail"
+    },
+    {
+      "id": "facade_projects", "w": 512, "h": 1024,
+      "prompt": "Tightly cropped wall texture of a tall public housing block, precast concrete panels in a strict grid, the wall fills the entire frame edge to edge with no border, small square windows, satellite dishes, washing on some balconies, stained concrete, wet neon reflections, night, flat elevation, camera perpendicular to the wall, zero perspective, no sky, no ground, no street, no horizon, no neighbouring buildings, no roofline, cropped architectural texture, photorealistic detail"
+    },
+    {
+      "id": "facade_office_grid", "w": 1024, "h": 1024,
+      "prompt": "Tightly cropped wall texture of a 1970s office block, precast concrete frame with recessed bronze windows, the wall fills the entire frame edge to edge with no border, regular repeating bays, air conditioning grilles, weathered concrete, wet neon reflections, night, flat elevation, camera perpendicular to the wall, zero perspective, no sky, no ground, no street, no horizon, no neighbouring buildings, no roofline, cropped architectural texture, photorealistic detail"
+    },
+    {
+      "id": "facade_stucco_pink", "w": 1024, "h": 1024,
+      "prompt": "Tightly cropped wall texture of a pink stucco apartment building, the wall fills the entire frame edge to edge with no border, arched windows with shutters, decorative moulding bands, external staircase, cracked render, glowing neon tube trim, wet reflections, night, flat elevation, camera perpendicular to the wall, zero perspective, no sky, no ground, no street, no horizon, no neighbouring buildings, no roofline, cropped architectural texture, photorealistic detail"
+    },
+    {
+      "id": "road_detail", "w": 1024, "h": 1024,
+      "prompt": "Seamless tileable top down texture of a worn city road surface at night, zebra crossing stripes, a cast iron manhole cover, patched tarmac repairs in darker asphalt, faded painted turn arrow, cracks and tyre scuffs, wet sheen with neon reflections, flat overhead orthographic view, no perspective, evenly lit, full bleed, game texture sheet, photorealistic detail"
+    },
+    {
+      "id": "road_markings", "w": 1024, "h": 1024,
+      "prompt": "Seamless tileable top down texture of asphalt with white and yellow road markings, dashed lane divider, solid edge lines, stop line, worn and chipped paint, oil staining between the lines, wet sheen with faint neon reflections, flat overhead orthographic view, no perspective, evenly lit, full bleed, game texture sheet, photorealistic detail"
+    }
+  ]
+}

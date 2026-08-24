@@ -1,0 +1,59 @@
+{
+  "_note": "Ground pass v3. The carriageway is real geometry now with world-tiled UVs at 7.5m per tile, so the asphalt is seen at ~136 px/metre instead of the 3.5 px/metre it got when it was baked into the 2048px ground canvas. Detail in these tiles finally survives to the screen.",
+  "_seamless": "The offset-and-crossfade seam fix in process_textures.py can only hide a seam inside noise, so every ground prompt forbids vignettes and hotspots - a large-scale gradient would still show as a visible tile edge.",
+  "_facades": "Six more wall types plus two shopfronts, using the framing rules that worked in facades_v2 and city2.",
+  "steps": 2,
+  "seed": 8821,
+  "out": "ground_v3",
+  "jobs": [
+    {
+      "id": "facade_artdeco_teal",
+      "w": 512,
+      "h": 1024,
+      "prompt": "Tightly cropped wall texture of a teal painted art deco apartment tower, stepped vertical pilasters, chrome window bands, glass block panels, warm lit rooms behind blinds, neon tube trim picking out the mouldings, wet reflections, night, the wall fills the entire frame edge to edge with no border, flat elevation, camera perpendicular to the wall, zero perspective, no sky, no ground, no street, no horizon, no neighbouring buildings, no roofline, cropped architectural texture, photorealistic detail"
+    },
+    {
+      "id": "facade_brutalist",
+      "w": 512,
+      "h": 1024,
+      "prompt": "Tightly cropped wall texture of a brutalist concrete tower, board marked raw concrete, deep recessed window slots in a strict grid, rain streaking down the panels, a few cold lit floors, wet neon reflections, night, the wall fills the entire frame edge to edge with no border, flat elevation, camera perpendicular to the wall, zero perspective, no sky, no ground, no street, no horizon, no neighbouring buildings, no roofline, cropped architectural texture, photorealistic detail"
+    },
+    {
+      "id": "facade_neon_motel",
+      "w": 1024,
+      "h": 512,
+      "prompt": "Tightly cropped wall texture of a two storey roadside motel, painted breeze block walls, a continuous external walkway with iron railing, numbered doors, warm bulbs over each door, buzzing neon strip, wet reflections, night, the wall fills the entire frame edge to edge with no border, flat elevation, camera perpendicular to the wall, zero perspective, no sky, no ground, no street, no horizon, no neighbouring buildings, no roofline, cropped architectural texture, photorealistic detail"
+    },
+    {
+      "id": "facade_market_arcade",
+      "w": 1024,
+      "h": 1024,
+      "prompt": "Tightly cropped wall texture of a covered market arcade frontage, repeating brick arches over shuttered stalls, painted signage boards above the arches, hanging bulbs, grime on the brick, wet neon reflections, night, the wall fills the entire frame edge to edge with no border, flat elevation, camera perpendicular to the wall, zero perspective, no sky, no ground, no street, no horizon, no neighbouring buildings, no roofline, cropped architectural texture, photorealistic detail"
+    },
+    {
+      "id": "facade_tower_gold",
+      "w": 512,
+      "h": 1024,
+      "prompt": "Tightly cropped wall texture of a luxury hotel tower in bronze tinted glass and gold anodised mullions, strict rectangular curtain wall grid, warm lit suites scattered through it, rain beading on the glass, wet magenta reflections, night, the wall fills the entire frame edge to edge with no border, flat elevation, camera perpendicular to the wall, zero perspective, no sky, no ground, no street, no horizon, no neighbouring buildings, no roofline, cropped architectural texture, photorealistic detail"
+    },
+    {
+      "id": "facade_redbrick_loft",
+      "w": 1024,
+      "h": 1024,
+      "prompt": "Tightly cropped wall texture of a red brick warehouse loft conversion, tall arched industrial windows with black steel frames, painted ghost signage fading on the brick, iron fire escape brackets, warm lit lofts, wet neon reflections, night, the wall fills the entire frame edge to edge with no border, flat elevation, camera perpendicular to the wall, zero perspective, no sky, no ground, no street, no horizon, no neighbouring buildings, no roofline, cropped architectural texture, photorealistic detail"
+    },
+    {
+      "id": "shopfront_diner",
+      "w": 1024,
+      "h": 512,
+      "prompt": "Tightly cropped wall texture of a chrome and glass american diner frontage at night, large windows with red vinyl booths visible inside, glowing neon script sign, tiled stall riser, warm interior light spilling out, wet reflections, night, the wall fills the entire frame edge to edge with no border, flat elevation, camera perpendicular to the wall, zero perspective, no sky, no ground, no street, no horizon, no neighbouring buildings, no roofline, cropped architectural texture, photorealistic detail"
+    },
+    {
+      "id": "shopfront_laundromat",
+      "w": 1024,
+      "h": 512,
+      "prompt": "Tightly cropped wall texture of a 24 hour laundromat frontage at night, full height glass with rows of washing machines inside, harsh cold fluorescent interior, faded vinyl lettering on the glass, scuffed metal frame, wet reflections, night, the wall fills the entire frame edge to edge with no border, flat elevation, camera perpendicular to the wall, zero perspective, no sky, no ground, no street, no horizon, no neighbouring buildings, no roofline, cropped architectural texture, photorealistic detail"
+    }
+  ],
+  "_split": "17 jobs in one request had the Beam gateway reset the connection before anything was written, so the sheet is split into runs the gateway tolerates. Both halves write to the same out dir."
+}

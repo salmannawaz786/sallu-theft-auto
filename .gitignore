@@ -1,0 +1,47 @@
+node_modules/
+dist/
+.wrangler/
+.claude/
+
+# working files, not part of the game
+index.backup.html
+music_removed/
+music_original/
+
+# generated asset pipeline outputs (large, regenerable)
+pipeline/out/
+pipeline/meshes/
+pipeline/meshes_hq/
+pipeline/__pycache__/
+
+# third-party source models before optimisation (large).
+car models thirdparty/
+
+# NOT REDISTRIBUTABLE - must never be committed or published.
+# old_car.glb is under the Sketchfab Standard licence, which forbids
+# redistributing the model file at all (a public repo counts).
+# grungy_little_car.glb is CC BY-NC - non-commercial only.
+# Neither is used by the game; see CREDITS.txt.
+models/old_car.glb
+models/grungy_little_car.glb
+
+# unused in the shipped build, kept locally only
+models/car.glb
+models/car_for_games_unity.glb
+models/police_car.glb
+models/halena_female_3_d_character.glb
+models/low-poly_city_buildings.glb
+models/low_poly_night_city_building_skyline.glb
+
+# working screenshots
+Screenshot*.jpg
+Screenshot*.png
+
+# your own music is yours - do not publish it
+music/*/
+music/*.mp3
+music/*.ogg
+music/*.m4a
+music/*.wav
+music/*.flac
+music/manifest.json

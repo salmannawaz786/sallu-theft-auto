@@ -1,0 +1,26 @@
+{
+  "_note": "Character references for Hunyuan. A-pose, full body, plain background - same rules as the vehicles.",
+  "steps": 4,
+  "seed": 7788,
+  "out": "chars_v1",
+  "jobs": [
+    {
+      "id": "player_male",
+      "w": 768,
+      "h": 1024,
+      "prompt": "A single standing man in a red bomber jacket, dark trousers and boots, arms slightly away from the body in a relaxed A-pose, facing forward, full body head to feet fully visible in frame, isolated on a plain flat light grey background, neutral even studio lighting, no shadows, no floor, no background objects, no text, character reference sheet, sharp detail"
+    },
+    {
+      "id": "ped_female",
+      "w": 768,
+      "h": 1024,
+      "prompt": "A single standing woman in a teal shirt and jeans, arms slightly away from the body in a relaxed A-pose, facing forward, full body head to feet fully visible in frame, isolated on a plain flat light grey background, neutral even studio lighting, no shadows, no floor, no background objects, no text, character reference sheet, sharp detail"
+    },
+    {
+      "id": "ped_male",
+      "w": 768,
+      "h": 1024,
+      "prompt": "A single standing man in a yellow shirt and shorts, arms slightly away from the body in a relaxed A-pose, facing forward, full body head to feet fully visible in frame, isolated on a plain flat light grey background, neutral even studio lighting, no shadows, no floor, no background objects, no text, character reference sheet, sharp detail"
+    }
+  ]
+}

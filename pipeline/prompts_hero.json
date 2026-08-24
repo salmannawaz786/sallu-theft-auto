@@ -1,0 +1,35 @@
+{
+  "_note": "Hero-quality regeneration. The v1 meshes were generated at 12 steps / octree 256 and then crushed from ~650k faces to 1800, which is 0.3% retained - that is why they came out as blobs rather than cars.",
+  "_changes": "steps 12 -> 40, octree 256 -> 380 for a cleaner reconstruction, and a face budget per ROLE rather than one number for everything: the car you drive can afford detail, a parked car forty metres away cannot.",
+
+  "steps": 40,
+  "octree_resolution": 380,
+  "seed": 5150,
+  "out": "vehicles_hq",
+
+  "jobs": [
+    {"id": "car_sedan",       "face_budget": 6000, "w": 1024, "h": 1024,
+     "prompt": "A single 1980s four door sedan car, complete vehicle fully visible in frame, three-quarter front view, isolated on a plain flat light grey background, neutral even studio lighting, no shadows, no reflections, no floor, no background objects, no text, sharp panel edges and crisp body lines, product photograph of the whole car, sharp detail"},
+
+    {"id": "car_coupe",       "face_budget": 6000, "w": 1024, "h": 1024,
+     "prompt": "A single 1980s two door sports coupe with pop-up headlights and a sharp wedge profile, complete vehicle fully visible in frame, three-quarter front view, isolated on a plain flat light grey background, neutral even studio lighting, no shadows, no reflections, no floor, no background objects, no text, sharp panel edges and crisp body lines, product photograph of the whole car, sharp detail"},
+
+    {"id": "car_van",         "face_budget": 5000, "w": 1024, "h": 1024,
+     "prompt": "A single boxy 1980s panel van with flat slab sides and square corners, complete vehicle fully visible in frame, three-quarter front view, isolated on a plain flat light grey background, neutral even studio lighting, no shadows, no reflections, no floor, no background objects, no text, sharp panel edges and crisp body lines, product photograph of the whole van, sharp detail"},
+
+    {"id": "car_pickup",      "face_budget": 5000, "w": 1024, "h": 1024,
+     "prompt": "A single 1980s pickup truck with a square open rear bed, complete vehicle fully visible in frame, three-quarter front view, isolated on a plain flat light grey background, neutral even studio lighting, no shadows, no reflections, no floor, no background objects, no text, sharp panel edges and crisp body lines, product photograph of the whole truck, sharp detail"},
+
+    {"id": "car_police",      "face_budget": 6000, "w": 1024, "h": 1024,
+     "prompt": "A single 1980s American police cruiser with a roof light bar, complete vehicle fully visible in frame, three-quarter front view, isolated on a plain flat light grey background, neutral even studio lighting, no shadows, no reflections, no floor, no background objects, no text, sharp panel edges and crisp body lines, product photograph of the whole car, sharp detail"},
+
+    {"id": "player_male",     "face_budget": 4000, "w": 768, "h": 1024,
+     "prompt": "A single standing man in a red bomber jacket, dark trousers and boots, arms slightly away from the body in a relaxed A-pose, facing forward, full body head to feet fully visible in frame, isolated on a plain flat light grey background, neutral even studio lighting, no shadows, no floor, no background objects, no text, character reference sheet, sharp detail"},
+
+    {"id": "ped_female",      "face_budget": 3000, "w": 768, "h": 1024,
+     "prompt": "A single standing woman in a teal shirt and jeans, arms slightly away from the body in a relaxed A-pose, facing forward, full body head to feet fully visible in frame, isolated on a plain flat light grey background, neutral even studio lighting, no shadows, no floor, no background objects, no text, character reference sheet, sharp detail"},
+
+    {"id": "ped_male",        "face_budget": 3000, "w": 768, "h": 1024,
+     "prompt": "A single standing man in a yellow shirt and shorts, arms slightly away from the body in a relaxed A-pose, facing forward, full body head to feet fully visible in frame, isolated on a plain flat light grey background, neutral even studio lighting, no shadows, no floor, no background objects, no text, character reference sheet, sharp detail"}
+  ]
+}

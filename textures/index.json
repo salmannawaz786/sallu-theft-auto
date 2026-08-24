@@ -1,0 +1,22 @@
+{
+  "batch": "ground_v3",
+  "textures": [
+    "asphalt_road",
+    "asphalt_worn",
+    "dirt_path",
+    "facade_artdeco_teal",
+    "facade_brutalist",
+    "facade_market_arcade",
+    "facade_neon_motel",
+    "facade_redbrick_loft",
+    "facade_tower_gold",
+    "grass_park",
+    "kerb_strip",
+    "pavement_wet",
+    "plaza_tile",
+    "road_detail",
+    "sand_beach",
+    "shopfront_diner",
+    "shopfront_laundromat"
+  ]
+}

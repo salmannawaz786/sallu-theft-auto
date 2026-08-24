@@ -1,0 +1,62 @@
+{
+  "_note": "Trial batch: 10 textures, rain-soaked neon noir. Roughly 1 minute of 4090 time.",
+  "_style": "Every prompt ends with the same style tail so the whole set reads as one city rather than ten unrelated images.",
+  "_tail": "rain-soaked neon noir, wet reflective surfaces, deep black shadows, magenta and cyan neon spill, night, cinematic, flat orthographic front view, no perspective distortion, evenly framed, full bleed, game texture sheet, photorealistic detail",
+
+  "steps": 2,
+  "seed": 7412,
+  "out": "trial_v1",
+
+  "jobs": [
+    {
+      "id": "facade_tower_dark",
+      "w": 512, "h": 1024,
+      "prompt": "Flat front elevation of a tall modern office tower facade at night, dark tinted glass curtain wall in a strict grid, scattered warm lit office windows, thin metal mullions, rain-soaked neon noir, wet reflective surfaces, deep black shadows, magenta and cyan neon spill, night, cinematic, flat orthographic front view, no perspective distortion, evenly framed, full bleed, game texture sheet, photorealistic detail"
+    },
+    {
+      "id": "facade_tower_concrete",
+      "w": 512, "h": 1024,
+      "prompt": "Flat front elevation of a brutalist concrete apartment tower at night, repeating recessed balconies, weathered concrete, a scatter of warm lit windows, air conditioning units, rain-soaked neon noir, wet reflective surfaces, deep black shadows, magenta and cyan neon spill, night, cinematic, flat orthographic front view, no perspective distortion, evenly framed, full bleed, game texture sheet, photorealistic detail"
+    },
+    {
+      "id": "facade_deco_pastel",
+      "w": 1024, "h": 1024,
+      "prompt": "Flat front elevation of a 1930s art deco hotel facade, stucco walls, rounded corner windows, horizontal racing stripes, neon tube trim glowing along the cornice, rain-soaked neon noir, wet reflective surfaces, deep black shadows, magenta and cyan neon spill, night, cinematic, flat orthographic front view, no perspective distortion, evenly framed, full bleed, game texture sheet, photorealistic detail"
+    },
+    {
+      "id": "facade_brick_walkup",
+      "w": 1024, "h": 1024,
+      "prompt": "Flat front elevation of an old brick walk-up building, iron fire escape zigzagging down the front, sash windows, stained brickwork, rain-soaked neon noir, wet reflective surfaces, deep black shadows, magenta and cyan neon spill, night, cinematic, flat orthographic front view, no perspective distortion, evenly framed, full bleed, game texture sheet, photorealistic detail"
+    },
+    {
+      "id": "shopfront_row",
+      "w": 1024, "h": 512,
+      "prompt": "Flat front elevation of a row of ground floor shopfronts, glowing neon signs, striped fabric awnings, glass windows with warm interior light spilling onto wet pavement, roller shutters, rain-soaked neon noir, wet reflective surfaces, deep black shadows, magenta and cyan neon spill, night, cinematic, flat orthographic front view, no perspective distortion, evenly framed, full bleed, game texture sheet, photorealistic detail"
+    },
+    {
+      "id": "shopfront_bar",
+      "w": 1024, "h": 512,
+      "prompt": "Flat front elevation of a late night bar and club entrance, big pink and cyan neon signage, dark doorway, small round windows, wet stained concrete, rain-soaked neon noir, wet reflective surfaces, deep black shadows, magenta and cyan neon spill, night, cinematic, flat orthographic front view, no perspective distortion, evenly framed, full bleed, game texture sheet, photorealistic detail"
+    },
+    {
+      "id": "asphalt_wet",
+      "w": 1024, "h": 1024,
+      "prompt": "Seamless tileable top down texture of wet city asphalt at night, faded white lane markings, tar seams, oil stains, scattered shallow puddles reflecting neon, fine gravel detail, rain-soaked neon noir, wet reflective surfaces, deep black shadows, magenta and cyan neon spill, night, flat overhead orthographic view, no perspective, evenly lit, full bleed, game texture sheet, photorealistic detail"
+    },
+    {
+      "id": "pavement_wet",
+      "w": 1024, "h": 1024,
+      "prompt": "Seamless tileable top down texture of wet concrete pavement slabs, cracked joints, drain grate, gum stains, damp sheen, rain-soaked neon noir, wet reflective surfaces, deep black shadows, magenta and cyan neon spill, night, flat overhead orthographic view, no perspective, evenly lit, full bleed, game texture sheet, photorealistic detail"
+    },
+    {
+      "id": "neon_signs_sheet",
+      "w": 1024, "h": 1024,
+      "prompt": "Texture sheet of six separate glowing neon bar signs arranged in a grid on pure black background, cursive neon tubing, palm tree motif, cocktail glass motif, arrow motif, hot magenta cyan and amber tubes, strong glow bloom, isolated on black, flat front view, no perspective, evenly spaced, game texture sheet, photorealistic detail"
+    },
+    {
+      "id": "billboard_sheet",
+      "w": 1024, "h": 512,
+      "prompt": "Weathered backlit billboard advertisement for a fictional 1980s tropical cocktail brand, bold graphic type, palm silhouette, sun stripe, faded and peeling paper, rain streaks, rain-soaked neon noir, wet reflective surfaces, night, flat front orthographic view, no perspective distortion, full bleed, game texture sheet, photorealistic detail"
+    }
+  ]
+}

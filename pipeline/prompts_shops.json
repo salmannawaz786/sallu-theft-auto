@@ -1,0 +1,27 @@
+{
+  "_note": "Shopfront variety. One shopfront texture tiled across every building meant the SAME neon sign repeated city-wide - the most obviously fake thing in the frame. Four distinct rows, assigned per building, kills the pattern.",
+  "_style": "Same tail as the facade set so they belong to one city.",
+
+  "steps": 2,
+  "seed": 2210,
+  "out": "shops_v2",
+
+  "jobs": [
+    {
+      "id": "shopfront_a", "w": 1024, "h": 512,
+      "prompt": "Tightly cropped wall texture of a row of ground floor shopfronts, the shopfronts fill the entire frame edge to edge with no border, a laundrette and a noodle bar side by side, striped fabric awnings, glass windows with warm interior light, glowing neon signage above the awnings, night, flat elevation, camera perpendicular to the wall, zero perspective, no sky, no ground, no pavement, no road, no reflections on the floor, cropped architectural texture, photorealistic detail"
+    },
+    {
+      "id": "shopfront_b", "w": 1024, "h": 512,
+      "prompt": "Tightly cropped wall texture of a late night bar frontage beside a shuttered pawn shop, the wall fills the entire frame edge to edge with no border, large glowing pink neon sign, dark recessed doorway, closed roller shutter with graffiti, painted brick, night, flat elevation, camera perpendicular to the wall, zero perspective, no sky, no ground, no pavement, no road, cropped architectural texture, photorealistic detail"
+    },
+    {
+      "id": "shopfront_c", "w": 1024, "h": 512,
+      "prompt": "Tightly cropped wall texture of a corner grocery and a barber shop at street level, the shopfronts fill the entire frame edge to edge with no border, produce crates under a canvas awning, spiral barber pole, warm lit windows, small cyan neon signs, night, flat elevation, camera perpendicular to the wall, zero perspective, no sky, no ground, no pavement, no road, cropped architectural texture, photorealistic detail"
+    },
+    {
+      "id": "shopfront_d", "w": 1024, "h": 512,
+      "prompt": "Tightly cropped wall texture of a neon lit arcade entrance next to a pizza counter, the shopfronts fill the entire frame edge to edge with no border, glowing amber and magenta tube signage, glass doors, tiled stall front, night, flat elevation, camera perpendicular to the wall, zero perspective, no sky, no ground, no pavement, no road, cropped architectural texture, photorealistic detail"
+    }
+  ]
+}

@@ -1,0 +1,51 @@
+{
+  "_note": "Input images for TRELLIS. These are NOT textures - they are reference photos that get turned into 3D meshes, so the rules are different again.",
+  "_rules": "TRELLIS segments the subject with rembg before reconstructing, so it needs ONE object, fully in frame, on a plain background, with no cropping and no scene. A three-quarter view gives it two visible sides to reason about; a flat side-on view leaves the front and back to guesswork. Neutral studio light, because any baked shadow becomes geometry.",
+
+  "steps": 4,
+  "seed": 5150,
+  "out": "vehicles_v1",
+
+  "jobs": [
+    {
+      "id": "car_sedan",
+      "w": 1024, "h": 1024,
+      "prompt": "A single 1980s four door sedan car, complete vehicle fully visible in frame, three-quarter front view, isolated on a plain flat light grey background, neutral even studio lighting, no shadows, no reflections, no floor, no background objects, no text, product photograph of the whole car, sharp detail"
+    },
+    {
+      "id": "car_coupe",
+      "w": 1024, "h": 1024,
+      "prompt": "A single 1980s two door sports coupe with pop-up headlights and a wedge profile, complete vehicle fully visible in frame, three-quarter front view, isolated on a plain flat light grey background, neutral even studio lighting, no shadows, no reflections, no floor, no background objects, no text, product photograph of the whole car, sharp detail"
+    },
+    {
+      "id": "car_van",
+      "w": 1024, "h": 1024,
+      "prompt": "A single boxy 1980s panel van, complete vehicle fully visible in frame, three-quarter front view, isolated on a plain flat light grey background, neutral even studio lighting, no shadows, no reflections, no floor, no background objects, no text, product photograph of the whole van, sharp detail"
+    },
+    {
+      "id": "car_pickup",
+      "w": 1024, "h": 1024,
+      "prompt": "A single 1980s pickup truck with an open rear bed, complete vehicle fully visible in frame, three-quarter front view, isolated on a plain flat light grey background, neutral even studio lighting, no shadows, no reflections, no floor, no background objects, no text, product photograph of the whole truck, sharp detail"
+    },
+    {
+      "id": "car_police",
+      "w": 1024, "h": 1024,
+      "prompt": "A single 1980s American police cruiser, black and white livery, light bar on the roof, complete vehicle fully visible in frame, three-quarter front view, isolated on a plain flat light grey background, neutral even studio lighting, no shadows, no reflections, no floor, no background objects, no text, product photograph of the whole car, sharp detail"
+    },
+    {
+      "id": "prop_hydrant",
+      "w": 1024, "h": 1024,
+      "prompt": "A single red cast iron fire hydrant, complete object fully visible in frame, three-quarter view, isolated on a plain flat light grey background, neutral even studio lighting, no shadows, no floor, no background objects, no text, product photograph, sharp detail"
+    },
+    {
+      "id": "prop_dumpster",
+      "w": 1024, "h": 1024,
+      "prompt": "A single battered green metal dumpster with a closed lid, complete object fully visible in frame, three-quarter view, isolated on a plain flat light grey background, neutral even studio lighting, no shadows, no floor, no background objects, no text, product photograph, sharp detail"
+    },
+    {
+      "id": "prop_phonebooth",
+      "w": 1024, "h": 1024,
+      "prompt": "A single street payphone booth with a metal hood and glass sides, complete object fully visible in frame, three-quarter view, isolated on a plain flat light grey background, neutral even studio lighting, no shadows, no floor, no background objects, no text, product photograph, sharp detail"
+    }
+  ]
+}

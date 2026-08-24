@@ -1,0 +1,12 @@
+Traceback (most recent call last):
+  File "/mnt/code/hunyuan_beam.py", line 191, in generate
+    _run(pipe, jobs, target, steps, octree, budget, manifest, report)
+  File "/mnt/code/hunyuan_beam.py", line 259, in _run
+    mesh.export(path)
+  File "/usr/local/lib/python3.11/dist-packages/trimesh/base.py", line 3004, in export
+    return export_mesh(mesh=self, file_obj=file_obj, file_type=file_type, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/dist-packages/trimesh/exchange/export.py", line 55, in export_mesh
+    file_obj = open(file_path, "wb")
+               ^^^^^^^^^^^^^^^^^^^^^
+BlockingIOError: [Errno 11] Resource temporarily unavailable: '/meshes/vehicles_hq/car_sedan.glb'

@@ -1,0 +1,112 @@
+{
+  "_note": "Ground pass v3. The carriageway is real geometry now with world-tiled UVs at 7.5m per tile, so the asphalt is seen at ~136 px/metre instead of the 3.5 px/metre it got when it was baked into the 2048px ground canvas. Detail in these tiles finally survives to the screen.",
+  "_seamless": "The offset-and-crossfade seam fix in process_textures.py can only hide a seam inside noise, so every ground prompt forbids vignettes and hotspots - a large-scale gradient would still show as a visible tile edge.",
+  "_facades": "Six more wall types plus two shopfronts, using the framing rules that worked in facades_v2 and city2.",
+  "steps": 2,
+  "seed": 8821,
+  "out": "ground_v3",
+  "jobs": [
+    {
+      "id": "asphalt_road",
+      "w": 1024,
+      "h": 1024,
+      "prompt": "Seamless tileable top down texture of city asphalt road surface at night, fine grey aggregate, subtle tyre polish lanes, faint oil staining, hairline cracks, damp sheen with soft magenta and cyan neon reflection, no road markings, flat overhead orthographic view, no perspective, evenly lit, no vignette, no hotspot, no lettering, full bleed, game texture tile, photorealistic detail"
+    },
+    {
+      "id": "asphalt_worn",
+      "w": 1024,
+      "h": 1024,
+      "prompt": "Seamless tileable top down texture of old patched city asphalt at night, darker rectangular tarmac repairs, spider cracking, gravel loss, sunken utility patch, damp sheen with faint neon reflection, no road markings, flat overhead orthographic view, no perspective, evenly lit, no vignette, no hotspot, no lettering, full bleed, game texture tile, photorealistic detail"
+    },
+    {
+      "id": "road_detail",
+      "w": 1024,
+      "h": 1024,
+      "prompt": "Seamless tileable top down texture of worn night road surface scattered with detail, a cast iron manhole cover, a drain grate, patched tarmac, faded painted turn arrow, tyre scuffs and cracks, wet sheen with neon reflections, flat overhead orthographic view, no perspective, evenly lit, no vignette, no hotspot, no lettering, full bleed, game texture tile, photorealistic detail"
+    },
+    {
+      "id": "pavement_wet",
+      "w": 1024,
+      "h": 1024,
+      "prompt": "Seamless tileable top down texture of a city pavement at night, rectangular concrete paving slabs in a running bond, chipped corners, dark grout joints, chewing gum spots and stains, damp sheen with faint neon reflection, flat overhead orthographic view, no perspective, evenly lit, no vignette, no hotspot, no lettering, full bleed, game texture tile, photorealistic detail"
+    },
+    {
+      "id": "plaza_tile",
+      "w": 1024,
+      "h": 1024,
+      "prompt": "Seamless tileable top down texture of a public plaza floor at night, large square polished stone pavers in a grid, subtle colour variation between slabs, fine joints, damp sheen reflecting warm and magenta light, flat overhead orthographic view, no perspective, evenly lit, no vignette, no hotspot, no lettering, full bleed, game texture tile, photorealistic detail"
+    },
+    {
+      "id": "grass_park",
+      "w": 1024,
+      "h": 1024,
+      "prompt": "Seamless tileable top down texture of dry municipal park grass at night, uneven mown turf, patches of bare soil, scattered dead leaves, cool blue night lighting with a little warm lamp spill, flat overhead orthographic view, no perspective, evenly lit, no vignette, no hotspot, no lettering, full bleed, game texture tile, photorealistic detail"
+    },
+    {
+      "id": "sand_beach",
+      "w": 1024,
+      "h": 1024,
+      "prompt": "Seamless tileable top down texture of fine beach sand at night, gentle wind ripples, scattered small shells and pebbles, faint footprint depressions, cool moonlit tone, flat overhead orthographic view, no perspective, evenly lit, no vignette, no hotspot, no lettering, full bleed, game texture tile, photorealistic detail"
+    },
+    {
+      "id": "dirt_path",
+      "w": 1024,
+      "h": 1024,
+      "prompt": "Seamless tileable top down texture of a compacted dirt and gravel park path at night, fine grit, small stones pressed into the surface, faint tyre and foot wear, cool night lighting, flat overhead orthographic view, no perspective, evenly lit, no vignette, no hotspot, no lettering, full bleed, game texture tile, photorealistic detail"
+    },
+    {
+      "id": "kerb_strip",
+      "w": 1024,
+      "h": 512,
+      "prompt": "Seamless tileable texture of a poured concrete kerb edge at night, weathered grey concrete with chipped top arris, expansion joints at regular intervals, faded paint scuff, damp sheen, flat overhead orthographic view, no perspective, evenly lit, no vignette, no hotspot, no lettering, full bleed, game texture tile, photorealistic detail"
+    },
+    {
+      "id": "facade_artdeco_teal",
+      "w": 512,
+      "h": 1024,
+      "prompt": "Tightly cropped wall texture of a teal painted art deco apartment tower, stepped vertical pilasters, chrome window bands, glass block panels, warm lit rooms behind blinds, neon tube trim picking out the mouldings, wet reflections, night, the wall fills the entire frame edge to edge with no border, flat elevation, camera perpendicular to the wall, zero perspective, no sky, no ground, no street, no horizon, no neighbouring buildings, no roofline, cropped architectural texture, photorealistic detail"
+    },
+    {
+      "id": "facade_brutalist",
+      "w": 512,
+      "h": 1024,
+      "prompt": "Tightly cropped wall texture of a brutalist concrete tower, board marked raw concrete, deep recessed window slots in a strict grid, rain streaking down the panels, a few cold lit floors, wet neon reflections, night, the wall fills the entire frame edge to edge with no border, flat elevation, camera perpendicular to the wall, zero perspective, no sky, no ground, no street, no horizon, no neighbouring buildings, no roofline, cropped architectural texture, photorealistic detail"
+    },
+    {
+      "id": "facade_neon_motel",
+      "w": 1024,
+      "h": 512,
+      "prompt": "Tightly cropped wall texture of a two storey roadside motel, painted breeze block walls, a continuous external walkway with iron railing, numbered doors, warm bulbs over each door, buzzing neon strip, wet reflections, night, the wall fills the entire frame edge to edge with no border, flat elevation, camera perpendicular to the wall, zero perspective, no sky, no ground, no street, no horizon, no neighbouring buildings, no roofline, cropped architectural texture, photorealistic detail"
+    },
+    {
+      "id": "facade_market_arcade",
+      "w": 1024,
+      "h": 1024,
+      "prompt": "Tightly cropped wall texture of a covered market arcade frontage, repeating brick arches over shuttered stalls, painted signage boards above the arches, hanging bulbs, grime on the brick, wet neon reflections, night, the wall fills the entire frame edge to edge with no border, flat elevation, camera perpendicular to the wall, zero perspective, no sky, no ground, no street, no horizon, no neighbouring buildings, no roofline, cropped architectural texture, photorealistic detail"
+    },
+    {
+      "id": "facade_tower_gold",
+      "w": 512,
+      "h": 1024,
+      "prompt": "Tightly cropped wall texture of a luxury hotel tower in bronze tinted glass and gold anodised mullions, strict rectangular curtain wall grid, warm lit suites scattered through it, rain beading on the glass, wet magenta reflections, night, the wall fills the entire frame edge to edge with no border, flat elevation, camera perpendicular to the wall, zero perspective, no sky, no ground, no street, no horizon, no neighbouring buildings, no roofline, cropped architectural texture, photorealistic detail"
+    },
+    {
+      "id": "facade_redbrick_loft",
+      "w": 1024,
+      "h": 1024,
+      "prompt": "Tightly cropped wall texture of a red brick warehouse loft conversion, tall arched industrial windows with black steel frames, painted ghost signage fading on the brick, iron fire escape brackets, warm lit lofts, wet neon reflections, night, the wall fills the entire frame edge to edge with no border, flat elevation, camera perpendicular to the wall, zero perspective, no sky, no ground, no street, no horizon, no neighbouring buildings, no roofline, cropped architectural texture, photorealistic detail"
+    },
+    {
+      "id": "shopfront_diner",
+      "w": 1024,
+      "h": 512,
+      "prompt": "Tightly cropped wall texture of a chrome and glass american diner frontage at night, large windows with red vinyl booths visible inside, glowing neon script sign, tiled stall riser, warm interior light spilling out, wet reflections, night, the wall fills the entire frame edge to edge with no border, flat elevation, camera perpendicular to the wall, zero perspective, no sky, no ground, no street, no horizon, no neighbouring buildings, no roofline, cropped architectural texture, photorealistic detail"
+    },
+    {
+      "id": "shopfront_laundromat",
+      "w": 1024,
+      "h": 512,
+      "prompt": "Tightly cropped wall texture of a 24 hour laundromat frontage at night, full height glass with rows of washing machines inside, harsh cold fluorescent interior, faded vinyl lettering on the glass, scuffed metal frame, wet reflections, night, the wall fills the entire frame edge to edge with no border, flat elevation, camera perpendicular to the wall, zero perspective, no sky, no ground, no street, no horizon, no neighbouring buildings, no roofline, cropped architectural texture, photorealistic detail"
+    }
+  ]
+}

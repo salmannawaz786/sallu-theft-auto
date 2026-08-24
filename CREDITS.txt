@@ -1,0 +1,76 @@
+THIRD-PARTY MODEL CREDITS - VICE COAST
+======================================
+
+Attribution is a licence CONDITION for every model below, not a courtesy.
+Keep this file with any build you distribute, and reproduce it anywhere the
+game is published.
+
+Two entries carry restrictions that the rest do not - see NON-COMMERCIAL at
+the bottom before shipping anything paid.
+
+
+COMMERCIAL USE PERMITTED (CC BY 4.0 - credit required)
+------------------------------------------------------
+
+"CAR" (https://skfb.ly/6B6M7) by min_ust
+  licensed under CC BY 4.0 (http://creativecommons.org/licenses/by/4.0/)
+  file: car.glb
+
+"car for games unity" (https://skfb.ly/6VAQQ) by Unity (shehab house)
+  licensed under CC BY 4.0 (http://creativecommons.org/licenses/by/4.0/)
+  file: car_for_games_unity.glb
+
+"Police car" (https://skfb.ly/6RrGy) by SpatialNeglect
+  licensed under CC BY 4.0 (http://creativecommons.org/licenses/by/4.0/)
+  file: police_car.glb
+  Credit confirmed from the download page. The GLB's own metadata field
+  instead reads "Mateusz Wolinski (jeandiz)", which is common when a model
+  has been re-uploaded or derived; the download page is what governs.
+
+"Generic passenger car pack" (https://skfb.ly/6sUFy) by Comrade1280
+  licensed under CC BY 4.0 (http://creativecommons.org/licenses/by/4.0/)
+  file: generic_passenger_car_pack.glb
+  Ten bodies (Compact, Coupe, Hatchback, Minivan, Offroad, Pickup, Sedan,
+  Sport, SUV, Wagon) plus eight wheel sets.
+
+"Low-poly City Buildings" (https://skfb.ly/oMrLu) by smooth998
+  licensed under CC BY 4.0 (http://creativecommons.org/licenses/by/4.0/)
+  file: low-poly_city_buildings.glb
+
+"Cyberpunk character" (https://skfb.ly/6SDpO) by 4d_Bob
+  licensed under CC BY 4.0 (http://creativecommons.org/licenses/by/4.0/)
+  file: cyberpunk_character.glb
+  Rigged: carries a skeleton and one animation clip.
+
+"Halena Female 3D character" (https://skfb.ly/oSPVn) by Mesh Artech
+  licensed under CC BY 4.0 (http://creativecommons.org/licenses/by/4.0/)
+  file: halena_female_3_d_character.glb
+  Not rigged - no skeleton, no animation clips.
+
+"Low Poly Night City Building Skyline" (https://skfb.ly/oPO8T) by 99.Miles
+  licensed under CC BY 4.0 (http://creativecommons.org/licenses/by/4.0/)
+  file: low_poly_night_city_building_skyline.glb
+
+
+NON-COMMERCIAL ONLY - DO NOT SHIP IN A PAID BUILD
+--------------------------------------------------
+
+"Grungy Little Car" (https://skfb.ly/o8Vy6) by Renafox (kryik1023)
+  licensed under CC BY-NC 4.0 (http://creativecommons.org/licenses/by-nc/4.0/)
+  file: grungy_little_car.glb
+  The NC clause forbids commercial use of any kind. Fine for a personal or
+  portfolio build; must be removed before the game is sold, put behind ads,
+  or otherwise monetised.
+
+"Old car" (https://sketchfab.com/3d-models/old-car-564fc37061494294889ef420bdade877)
+  by solid3DDD (https://sketchfab.com/solid3ddd)
+  licensed under the SKETCHFAB STANDARD licence (https://sketchfab.com/licenses)
+  file: old_car.glb
+  This was missing from the original credits file. It is NOT a Creative
+  Commons licence: the Sketchfab Standard licence prohibits commercial use
+  and prohibits redistributing the model file itself, including inside a
+  game build. Strictest of the set - treat as personal-use only.
+
+
+Licence text as recorded inside each GLB (asset.extras.license) was used as
+the source of truth for this file, since it travels with the model.

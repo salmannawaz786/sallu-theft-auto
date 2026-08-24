@@ -1,0 +1,47 @@
+{
+  "_note": "v2: facades reframed. The v1 prompts produced photographs of buildings - sky above, road below, neighbours at the edges, real perspective depth. These map onto a flat box face, so the wall has to fill the frame completely.",
+  "_fix": "Three changes: describe the WALL not the BUILDING, name every unwanted element explicitly (sky/ground/street/neighbours/horizon), and demand a camera perpendicular to the surface. The two v1 formulas that already worked ('seamless tileable top down' and 'isolated on black') both succeeded because they constrained space explicitly - these now do the same.",
+
+  "steps": 2,
+  "seed": 3390,
+  "out": "facades_v2",
+
+  "jobs": [
+    {
+      "id": "facade_tower_dark",
+      "w": 512, "h": 1024,
+      "prompt": "Tightly cropped wall texture of a modern glass office tower curtain wall, the glass grid fills the entire frame edge to edge with no border, dark tinted panels in a strict rectangular grid, thin metal mullions, scattered warm lit offices behind the glass, rain beading on the glass, wet neon reflections in magenta and cyan, night, flat elevation, camera perpendicular to the wall, zero perspective, no sky, no ground, no street, no horizon, no neighbouring buildings, no roofline, cropped architectural texture, photorealistic detail"
+    },
+    {
+      "id": "facade_tower_concrete",
+      "w": 512, "h": 1024,
+      "prompt": "Tightly cropped wall texture of a brutalist concrete apartment block, the concrete wall fills the entire frame edge to edge with no border, repeating recessed balconies in a regular grid, weathered stained concrete, scattered warm lit windows, air conditioning units, rain streaks, wet neon reflections in magenta and cyan, night, flat elevation, camera perpendicular to the wall, zero perspective, no sky, no ground, no street, no horizon, no neighbouring buildings, no roofline, cropped architectural texture, photorealistic detail"
+    },
+    {
+      "id": "facade_deco_pastel",
+      "w": 1024, "h": 1024,
+      "prompt": "Tightly cropped wall texture of a 1930s art deco stucco facade, the wall fills the entire frame edge to edge with no border, horizontal racing stripe mouldings, rectangular windows in a regular grid, glowing neon tube trim running horizontally across the stucco, damp stucco surface, wet neon reflections in magenta and cyan, night, flat elevation, camera perpendicular to the wall, zero perspective, no sky, no ground, no street, no horizon, no neighbouring buildings, no roofline, cropped architectural texture, photorealistic detail"
+    },
+    {
+      "id": "facade_brick_walkup",
+      "w": 1024, "h": 1024,
+      "prompt": "Tightly cropped wall texture of an old stained brick tenement wall, the brickwork fills the entire frame edge to edge with no border, sash windows in a regular grid, black iron fire escape bolted flat against the brick, rain streaks and damp patches, wet neon reflections in magenta and cyan, night, flat elevation, camera perpendicular to the wall, zero perspective, no sky, no ground, no street, no horizon, no neighbouring buildings, no roofline, cropped architectural texture, photorealistic detail"
+    },
+    {
+      "id": "shopfront_row",
+      "w": 1024, "h": 512,
+      "prompt": "Tightly cropped wall texture of a row of ground floor shopfronts, the shopfronts fill the entire frame edge to edge with no border, striped fabric awnings, glass windows with warm interior light, closed roller shutters, glowing neon signage above the awnings, night, flat elevation, camera perpendicular to the wall, zero perspective, no sky, no ground, no pavement, no road, no reflections on the floor, no horizon, cropped architectural texture, photorealistic detail"
+    },
+    {
+      "id": "shopfront_bar",
+      "w": 1024, "h": 512,
+      "prompt": "Tightly cropped wall texture of a late night bar frontage, the wall fills the entire frame edge to edge with no border, large glowing pink and cyan neon signage, dark recessed doorway, small round porthole windows, painted brick, night, flat elevation, camera perpendicular to the wall, zero perspective, no sky, no ground, no pavement, no road, no reflections on the floor, no horizon, cropped architectural texture, photorealistic detail"
+    },
+    {
+      "id": "neon_signs_sheet",
+      "w": 1024, "h": 1024,
+      "seed": 9981,
+      "prompt": "Texture sheet of six separate glowing neon bar signs arranged in an evenly spaced grid of two rows and three columns on pure black background, each sign fully drawn and clearly separated, cursive neon tubing, palm tree motif, cocktail glass motif, flamingo motif, arrow motif, star motif, crescent moon motif, hot magenta cyan amber and white tubes, strong glow bloom, isolated on pure black, flat front view, no perspective, no background detail, game texture sheet, photorealistic detail"
+    }
+  ]
+}
