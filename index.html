@@ -3070,7 +3070,12 @@ function updateSky(dt){
   if(wantShadow)renderer.shadowMap.needsUpdate=true;
   else if(sun.shadow.map){sun.shadow.map.dispose();sun.shadow.map=null}
  }
- hemi.intensity=.62-dayAmt*.30;
+ /* The fill is the only thing lighting a surface the sun cannot see - there
+    is no bounce in this scene - so a shaded wall is lit by this and nothing
+    else. Outdoors the sky is a genuinely bright source; the daytime figure
+    goes UP, not down, and the contrast comes from the key being higher
+    still. */
+ hemi.intensity=.62+dayAmt*.55;
  sun.position.set(player.x+sunDir.x*180,sunDir.y*180+40,player.z+sunDir.z*180);
  sun.target.position.set(player.x,0,player.z);
  sunSprite.position.copy(sunDir).multiplyScalar(1300);
@@ -3089,8 +3094,29 @@ function updateSky(dt){
    (g2.position.distanceToSquared(camera.position)<GLOW_DIST*GLOW_DIST);
  }
  lampHeadMat.color.copy(headDay).lerp(headNight,nightAmt);
- for(const m of facadeMats)m.emissiveIntensity=.05+nightAmt*.85;
- for(const m of shopMats)m.emissiveIntensity=.05+nightAmt*1.5;
+ /* The facade set is baked for night, and measurably so: mean albedo across
+    the pack is 45-70 of 255, darker than the asphalt. At night that is
+    correct - the emissive window mask carries the image and the brickwork
+    between windows is supposed to be nearly black. Point the same texture at
+    a midday sun and a FULLY LIT wall renders at 47/255, with anything in
+    shade going to 3. That is the "daylight looks wrong" the night lock was
+    hiding, and no amount of extra fill fixes it, because the problem is
+    reflectance, not illumination.
+
+    So daylight scales the albedo instead. It is a per-material uniform, so it
+    costs nothing and needs no shader recompile, and it winds back to 1 as the
+    sun goes down - the night look is untouched. */
+ const dayGain=1+dayAmt*3.4;
+ for(const m of facadeMats){
+  m.color.setScalar(dayGain);
+  m.emissiveIntensity=.05+nightAmt*.85;
+ }
+ for(const m of shopMats){
+  /* until the generated row arrives these still carry their fallback tint,
+     and scaling that would turn an unlit shopfront into a glowing slab */
+  if(m.map)m.color.setScalar(dayGain);
+  m.emissiveIntensity=.05+nightAmt*1.5;
+ }
  for(const m of signMats)m.opacity=.2+nightAmt*.5;
  if(signalLensMat)signalLensMat.color.setRGB(.44+nightAmt*.5,.29+nightAmt*.22,.13);
  if(skylineMat){
@@ -3913,7 +3939,7 @@ function updateFX(dt){
  }else for(const r of rips)r.m.visible=false;
 
  const night=nightAmt01;
- renderer.toneMappingExposure=lerp(1.06,1.18,night)*lerp(1,.9,wet);
+ renderer.toneMappingExposure=lerp(1.20,1.18,night)*lerp(1,.9,wet);
  bloomPass.strength=.26+night*.38+wet*.12;
  /* a high threshold in daylight so only the sun and specular hits bloom -
     a low one turns every pale wall into a glow and washes the city out */
