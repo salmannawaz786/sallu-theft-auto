@@ -334,10 +334,26 @@ const starGeo=new THREE.BufferGeometry();
 starGeo.setAttribute('position',new THREE.Float32BufferAttribute(p,3));}
 const starMat=new THREE.PointsMaterial({color:0xcfd8e8,size:1.7,sizeAttenuation:false,transparent:true,opacity:0,fog:false});
 scene.add(new THREE.Points(starGeo,starMat));
-const oceanMat=new THREE.MeshStandardMaterial({color:0x2e7f83,roughness:.12,metalness:.5,envMapIntensity:1.4});
+const oceanNormalTex=(()=>{
+ const c=document.createElement('canvas');c.width=c.height=256;const g=c.getContext('2d');
+ const id=g.createImageData(256,256),D=id.data;
+ const W=(x,y)=>Math.sin(x*.08+y*.05)*.5+Math.sin(x*.16-y*.12)*.3+Math.sin(y*.22+x*.11)*.2;
+ for(let y=0;y<256;y++)for(let x=0;x<256;x++){
+  const dx=(W(x+1,y)-W(x-1,y))*.8, dy=(W(x,y+1)-W(x,y-1))*.8;
+  let nx=-dx, ny=-dy, nz=1.0, l=Math.hypot(nx,ny,nz); nx/=l; ny/=l; nz/=l;
+  const i=(y*256+x)*4;
+  D[i]=(nx*.5+.5)*255; D[i+1]=(ny*.5+.5)*255; D[i+2]=(nz*.5+.5)*255; D[i+3]=255;
+ }
+ g.putImageData(id,0,0);
+ const t=new THREE.CanvasTexture(c);
+ t.wrapS=t.wrapT=THREE.RepeatWrapping;
+ t.repeat.set(48,48);
+ return t;
+})();
+const oceanMat=new THREE.MeshStandardMaterial({color:0x16889c,normalMap:oceanNormalTex,roughness:.10,metalness:.45,envMapIntensity:1.8});
 const ocean=new THREE.Mesh(new THREE.PlaneGeometry(2600,2600,44,44).rotateX(-Math.PI/2),oceanMat);
 ocean.position.y=-.35;scene.add(ocean);
-const oceanDay=new THREE.Color(0x2e7f83),oceanNight=new THREE.Color(0x0c2027);
+const oceanDay=new THREE.Color(0x16889c),oceanNight=new THREE.Color(0x0a1c24);
 
 /* ---- shared materials ---- */
 const matHead=new THREE.MeshBasicMaterial({color:0x3a3f45});
@@ -783,7 +799,7 @@ let signalLensMat=null,kerbMat=null;
  {wall:'#d97f6f',cols:4,rows:5},{wall:'#c9b79a',cols:5,rows:5},{wall:'#a8b0a4',cols:4,rows:6},
  {wall:'#7e989e',cols:6,rows:12},{wall:'#8fa6a5',cols:5,rows:10},{wall:'#6f7f8c',cols:6,rows:14},
  {wall:'#9aa3ad',cols:5,rows:11},{wall:'#87909b',cols:6,rows:13},{wall:'#b0a394',cols:5,rows:9}];
- const roofMat=new THREE.MeshLambertMaterial({color:0x2e3136});
+ const roofMat=new THREE.MeshStandardMaterial({color:0x34383e,roughness:.85,metalness:.05});
  const mats=variants.map(v=>{
   const w=128,h=v.rows>8?256:128;
   const c=document.createElement('canvas');c.width=w;c.height=h;const g=c.getContext('2d');
@@ -800,7 +816,7 @@ let signalLensMat=null,kerbMat=null;
   }
   g.fillStyle='#33373c';g.fillRect(0,0,16,16);
   const t=x=>{const tx=new THREE.CanvasTexture(x);tx.colorSpace=THREE.SRGBColorSpace;return tx};
-  const m=new THREE.MeshStandardMaterial({map:t(c),emissiveMap:t(e),emissive:0xffffff,emissiveIntensity:.06,roughness:.9});
+  const m=new THREE.MeshStandardMaterial({map:t(c),emissiveMap:t(e),emissive:0xffffff,emissiveIntensity:.06,roughness:.78,metalness:.06,envMapIntensity:.7});
   facadeMats.push(m);return m;
  });
  const bags=variants.map(()=>[]),roofs=[];
@@ -1084,9 +1100,9 @@ const lampGlows=[],GLOW_DIST=115;
     ring. Nothing here is animated, and it never was, so the whole canopy for
     the whole map merges into one mesh per material - more trees for fewer
     draw calls than the old ones cost. */
- const trunkMat=new THREE.MeshLambertMaterial({color:0x8a6a4a});
- const leafMat=new THREE.MeshLambertMaterial({color:0x3f7d4b,side:THREE.DoubleSide});
- const leafMat2=new THREE.MeshLambertMaterial({color:0x4e8a44,side:THREE.DoubleSide});
+ const trunkMat=new THREE.MeshStandardMaterial({color:0x7d6046,roughness:.86,metalness:.02});
+ const leafMat=new THREE.MeshStandardMaterial({color:0x2d733d,roughness:.62,metalness:.04,envMapIntensity:.5,side:THREE.DoubleSide});
+ const leafMat2=new THREE.MeshStandardMaterial({color:0x3c8546,roughness:.58,metalness:.04,envMapIntensity:.5,side:THREE.DoubleSide});
  /* one frond: a strip that tapers to a point and sags under its own weight */
  function frondGeo(len,wid,droop){
   const SEG=5,pos=[],nrm=[],uv=[],idx=[];
@@ -1463,7 +1479,7 @@ const BASE_VEHICLES=VEHICLES.slice();
 const geoBody=VEHICLES[0].geoBody,geoCab=VEHICLES[0].geoCab;
 const geoBar=new THREE.BoxGeometry(.5,.15,.34);
 /* dark glass and near-black trim, shared by every generated vehicle */
-const carGlassMat=new THREE.MeshStandardMaterial({color:0x11161d,roughness:.18,metalness:.55,envMapIntensity:1.3});
+const carGlassMat=new THREE.MeshStandardMaterial({color:0x0e1318,roughness:.06,metalness:.65,envMapIntensity:2.2});
 const carTrimMat=new THREE.MeshLambertMaterial({color:0x0d0f12});
 /* wheels are cached by radius rounded to the centimetre, so the whole city
    shares a handful of cylinders no matter how many cars are spawned */
@@ -1476,7 +1492,7 @@ function hubGeoFor(r){
  const k=Math.round(r*100);
  return hubGeoCache[k]||(hubGeoCache[k]=new THREE.CylinderGeometry(r*.58,r*.58,r*.80,12));
 }
-const hubMat=new THREE.MeshStandardMaterial({color:0x9aa0a8,roughness:.34,metalness:.85,envMapIntensity:1.2});
+const hubMat=new THREE.MeshStandardMaterial({color:0xa5abb5,roughness:.22,metalness:.90,envMapIntensity:1.6});
 const archMat=new THREE.MeshBasicMaterial({color:0x07090b,side:THREE.DoubleSide});
 const archGeoCache={};
 function archGeoFor(V){
@@ -1488,7 +1504,7 @@ function archGeoFor(V){
  return archGeoCache[V.name]=mergeG(parts);
 }
 const tireMat=new THREE.MeshLambertMaterial({color:0x14161a}),glassMat=new THREE.MeshLambertMaterial({color:0x1d2733}),
-copBodyMat=new THREE.MeshStandardMaterial({color:0xf4f4f4,roughness:.34,metalness:.10,envMapIntensity:1.1});
+copBodyMat=new THREE.MeshStandardMaterial({color:0xf2f4f8,roughness:.18,metalness:.25,envMapIntensity:1.75});
 const bodyMats={},CARCOLS=['#d94f4f','#e8b23c','#4fa3d9','#7bc47f','#e8e8e8','#5a5f66','#c76bb0','#2e2f33'];
 function makeCar(color,cop,kind){
  const g=new THREE.Group();
@@ -1499,7 +1515,7 @@ function makeCar(color,cop,kind){
  g.userData.kind=V.name;g.userData.len=(V.dims&&V.dims.l)||V.axle*2+1.5;
  g.userData.wid=(V.dims&&V.dims.w)||1.96;
  g.userData.handling=V.handling||null;g.userData.wheelR=V.wheelR||null;g.rotation.order='YXZ';
- const bm=bodyMats[color]||(bodyMats[color]=new THREE.MeshStandardMaterial({color,roughness:.34,metalness:.12,envMapIntensity:1.15}));
+ const bm=bodyMats[color]||(bodyMats[color]=new THREE.MeshStandardMaterial({color,roughness:.18,metalness:.28,envMapIntensity:1.85}));
  const shell=cop&&V.geoCop?V.geoCop:V.geoBody;
  const paint=cop?(V.pack?packPaintFor(V,'#e9edf2'):copBodyMat):(V.pack?packPaintFor(V,color):bm);
  const body=new THREE.Mesh(shell,shell.userData.split?[paint,carGlassMat,carTrimMat]:paint);
@@ -3720,20 +3736,43 @@ envTex.needsUpdate=true;
 scene.environment=envTex;
 let envAcc=0;
 const _eTop=new THREE.Color(),_eHor=new THREE.Color(),_eMix=new THREE.Color();
-const cityGlow=new THREE.Color(0xff9a4a);
+const cityGlow=new THREE.Color(0xff9a4a), warmBounce=new THREE.Color(0x8a7a66), sunSpecColor=new THREE.Color(0xfffaea);
+const _dirVec=new THREE.Vector3();
 function updateEnv(){
  _eTop.copy(skyU.top.value);_eHor.copy(skyU.hor.value);
+ const sd=sunDir;
  for(let y=0;y<ENVH;y++){
   const v=y/(ENVH-1), up=1-v*2;
-  if(up>=0){_eMix.copy(_eHor).lerp(_eTop,Math.pow(up,.55));}
-  else{
-   _eMix.copy(_eHor).multiplyScalar(.34+.2*dayAmt01);
-   _eMix.lerp(cityGlow,nightAmt01*.45*Math.pow(1+up,2.2));
+  const phi_y=Math.asin(clamp(up,-1,1));
+  const cos_phi=Math.cos(phi_y);
+  for(let x=0;x<ENVW;x++){
+   const u=x/ENVW;
+   const theta=u*6.2831853-3.1415926;
+   _dirVec.set(cos_phi*Math.sin(theta), up, cos_phi*Math.cos(theta)).normalize();
+
+   if(up>=0){
+    _eMix.copy(_eHor).lerp(_eTop,Math.pow(up,.55));
+   }else{
+    _eMix.copy(_eHor).multiplyScalar(.34+.2*dayAmt01);
+    _eMix.lerp(cityGlow,nightAmt01*.45*Math.pow(1+up,2.2));
+    _eMix.lerp(warmBounce,dayAmt01*.35*Math.pow(1+up,1.4));
+   }
+   const band=Math.exp(-Math.abs(up)*14)*nightAmt01*.8;
+   _eMix.lerp(cityGlow,band);
+
+   if(dayAmt01>.02){
+    const sDot=Math.max(0,_dirVec.dot(sd));
+    if(sDot>.7){
+     const corona=Math.pow(sDot,12)*1.4*dayAmt01;
+     const core=Math.pow(sDot,64)*4.5*dayAmt01;
+     _eMix.lerp(sunSpecColor,Math.min(1,corona*.6+core));
+     _eMix.addScaledVector(sunSpecColor,corona*.8+core*1.5);
+    }
+   }
+   const r=Math.min(255,Math.max(0,_eMix.r*255))|0,g=Math.min(255,Math.max(0,_eMix.g*255))|0,b=Math.min(255,Math.max(0,_eMix.b*255))|0;
+   const i=(y*ENVW+x)*4;
+   envData[i]=r;envData[i+1]=g;envData[i+2]=b;envData[i+3]=255;
   }
-  const band=Math.exp(-Math.abs(up)*14)*nightAmt01*.8;
-  _eMix.lerp(cityGlow,band);
-  const r=Math.min(255,_eMix.r*255)|0,g=Math.min(255,_eMix.g*255)|0,b=Math.min(255,_eMix.b*255)|0;
-  for(let x=0;x<ENVW;x++){const i=(y*ENVW+x)*4;envData[i]=r;envData[i+1]=g;envData[i+2]=b;envData[i+3]=255}
  }
  envTex.needsUpdate=true;
 }
@@ -3805,6 +3844,9 @@ const GradeShader={
    c=(c-.5)*con+.5;
    float l=dot(c,vec3(.2126,.7152,.0722));
    c=mix(vec3(l),c,sat);
+   vec3 warmHi=vec3(1.022,1.010,0.986);
+   vec3 coolLo=vec3(0.978,0.986,1.018);
+   c*=mix(coolLo,warmHi,smoothstep(0.12,0.85,l));
    c+=lift*(1.-smoothstep(0.,.5,l));
    c*=mix(1.,smoothstep(.92,.18,r2*vig),.85);
    float n=hash(uv*vec2(1024.,1024.)+fract(time)*137.);
@@ -3872,7 +3914,12 @@ function updateFX(dt){
   kerbMat.envMapIntensity=lerp(.3,1.5,wet)*(1+nightAmt01*.4);
   kerbMat.color.setScalar(lerp(1,.7,wet));
  }
- oceanMat.envMapIntensity=1.4+nightAmt01*.6;
+ if(oceanMat&&oceanNormalTex){
+  oceanNormalTex.offset.x=(fxTime*.014)%1;
+  oceanNormalTex.offset.y=(fxTime*.009)%1;
+  oceanMat.envMapIntensity=1.6+dayAmt01*1.0+nightAmt01*.5;
+  oceanMat.roughness=lerp(.09,.22,wet);
+ }
 
  /* brake and reverse lamps on the car you are actually driving */
  const drv=(player.mode==='drive')?player.car:null;
@@ -5132,7 +5179,7 @@ function packPaintFor(V,color){
  /* The pack ships paint as white with a detail map at roughness 1 metalness 1
     - fully rough metal, which renders like dull lead. Paint is a dielectric:
     keep the map, correct the response, tint through the base colour. */
- const m=new THREE.MeshStandardMaterial({color,roughness:.36,metalness:.10,envMapIntensity:1.15});
+ const m=new THREE.MeshStandardMaterial({color,roughness:.18,metalness:.28,envMapIntensity:1.85});
  if(V.paintSrc&&V.paintSrc.map)m.map=V.paintSrc.map;
  return packMatCache[k]=m;
 }
@@ -5159,8 +5206,8 @@ async function applyCarPack(){
  /* Opaque privacy glass. There is nobody modelled in the driving seat, so
     see-through windows read as a ghost at the wheel. Solid and glossy also
     means no transparent sort pass and no blending for any car in the city. */
- packGlassMat=new THREE.MeshStandardMaterial({color:0x05070a,roughness:.08,metalness:.55,
-  envMapIntensity:2.0});
+ packGlassMat=new THREE.MeshStandardMaterial({color:0x05070a,roughness:.05,metalness:.65,
+  envMapIntensity:2.4});
 
  const built=[];
  for(const b of bodies){
