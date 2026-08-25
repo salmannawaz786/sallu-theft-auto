@@ -153,7 +153,7 @@ from the deployed build: `old_car.glb` (Sketchfab Standard) and
 `grungy_little_car.glb` (CC BY-NC). Do not add them to a public or commercial
 build.
 
-Authorship watermarks and how to remove them under licence: [`WATERMARK.md`](WATERMARK.md).
+
 
 ---
 
