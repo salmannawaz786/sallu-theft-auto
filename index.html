@@ -133,7 +133,7 @@ kbd{font-size:11.5px;color:var(--paper);border:1px solid rgba(242,234,217,.28);b
   <div id="perf" class="hidden"></div>
   <div id="apb" class="hidden"></div>
   <div id="ask" class="hidden"></div>
-  <div id="hint">W A S D &middot; SPACE handbrake &middot; F enter / exit &middot; M map &middot; [ ] radio &middot; E ask a witness &middot; SHIFT sprint &middot; C camera &middot; T time / Shift+T night &middot; R rain &middot; G graphics &middot; F3 stats &middot; F4 profile &middot; ESC pause</div>
+  <div id="hint">W A S D &middot; SPACE handbrake &middot; F enter / exit &middot; CLICK punch &middot; M map &middot; [ ] radio &middot; E ask a witness &middot; SHIFT sprint &middot; C camera &middot; T time / Shift+T night &middot; R rain &middot; G graphics &middot; F3 stats &middot; F4 profile &middot; ESC pause</div>
 </div>
 
 <div id="title" class="overlay">
@@ -144,7 +144,7 @@ kbd{font-size:11.5px;color:var(--paper);border:1px solid rgba(242,234,217,.28);b
   <div class="tag2">Do it with nobody watching and nothing happens. Do it in a crowd and someone runs to the police &mdash; with a description of your car that might be wrong.</div>
   <div class="controls">
     <span><kbd>W A S D</kbd> drive / walk</span><span><kbd>SPACE</kbd> handbrake</span>
-    <span><kbd>F</kbd> enter / exit car</span><span><kbd>E</kbd> ask a witness</span><span><kbd>SHIFT</kbd> sprint</span>
+    <span><kbd>F</kbd> enter / exit car</span><span><kbd>CLICK</kbd> / <kbd>Q</kbd> punch</span><span><kbd>E</kbd> ask a witness</span><span><kbd>SHIFT</kbd> sprint</span>
     <span><kbd>MOUSE</kbd> look</span><span><kbd>M</kbd> map</span><span><kbd>C</kbd> camera</span><span><kbd>T</kbd> skip time</span><span><kbd>R</kbd> rain</span>
   </div>
   <div id="start">CLICK TO START</div>
@@ -264,13 +264,68 @@ function radialTex(inner){
  gr.addColorStop(0,inner);gr.addColorStop(.4,'rgba(255,255,255,.4)');gr.addColorStop(1,'rgba(255,255,255,0)');
  g.fillStyle=gr;g.fillRect(0,0,64,64);return new THREE.CanvasTexture(c);
 }
-const skyU={top:{value:new THREE.Color()},hor:{value:new THREE.Color()},sunDir:{value:new THREE.Vector3(0,1,0)},sunCol:{value:new THREE.Color()},sunAmt:{value:1}};
-const sky=new THREE.Mesh(new THREE.SphereGeometry(1500,24,12),new THREE.ShaderMaterial({side:THREE.BackSide,depthWrite:false,uniforms:skyU,
+/* An empty gradient is the single biggest thing separating a daytime shot
+   from a night one. At night the sky is meant to be featureless and the city
+   carries the frame; in daylight two thirds of the screen is sky, and a bare
+   ramp from blue to paler blue reads as a menu background. So the daytime sky
+   gets a cloud deck: value-noise fbm projected onto a plane above the camera,
+   which gives real perspective - broad slabs overhead compressing to a band
+   at the horizon - lit from the sun's side so the clouds have a bright edge
+   and a shaded underside. It costs one full-screen shader with no texture
+   fetch, and it fades out with dayAmt so night is untouched. */
+const skyU={top:{value:new THREE.Color()},hor:{value:new THREE.Color()},sunDir:{value:new THREE.Vector3(0,1,0)},sunCol:{value:new THREE.Color()},sunAmt:{value:1},
+ time:{value:0},cloud:{value:.55},cloudCol:{value:new THREE.Color(0xffffff)},cloudDark:{value:new THREE.Color(0x8fa3bb)}};
+const sky=new THREE.Mesh(new THREE.SphereGeometry(1500,32,16),new THREE.ShaderMaterial({side:THREE.BackSide,depthWrite:false,uniforms:skyU,
 vertexShader:`varying vec3 vD;void main(){vD=normalize(position);gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}`,
-fragmentShader:`varying vec3 vD;uniform vec3 top,hor,sunCol,sunDir;uniform float sunAmt;
-void main(){float h=clamp(vD.y,0.,1.);vec3 c=mix(hor,top,pow(h,.55));
-float s=pow(max(dot(vD,normalize(sunDir)),0.),8.);
-c+=sunCol*s*sunAmt*(.35+.65*(1.-h));c=pow(c,vec3(2.2))*1.15;gl_FragColor=vec4(c,1.);}`}));
+fragmentShader:`varying vec3 vD;
+uniform vec3 top,hor,sunCol,sunDir,cloudCol,cloudDark;
+uniform float sunAmt,time,cloud;
+float hash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
+float vnoise(vec2 p){
+ vec2 i=floor(p),f=fract(p);
+ vec2 u=f*f*(3.-2.*f);
+ return mix(mix(hash(i),hash(i+vec2(1,0)),u.x),
+            mix(hash(i+vec2(0,1)),hash(i+vec2(1,1)),u.x),u.y);
+}
+float fbm(vec2 p){
+ float v=0.,a=.5,n=0.;
+ for(int i=0;i<5;i++){v+=a*vnoise(p);n+=a;p=p*2.03+vec2(17.3,9.1);a*=.5;}
+ return v/n;                                  /* normalised, so 0..1 means it */
+}
+void main(){
+ vec3 d=normalize(vD);
+ float h=clamp(d.y,0.,1.);
+ vec3 c=mix(hor,top,pow(h,.55));
+ vec3 sd=normalize(sunDir);
+ /* broad forward scatter, plus a tight disc so the sun is a THING */
+ float g=pow(max(dot(d,sd),0.),8.);
+ c+=sunCol*g*sunAmt*(.35+.65*(1.-h));
+ float disc=smoothstep(.9975,.9993,dot(d,sd));
+ c+=sunCol*disc*sunAmt*2.2;
+ if(cloud>.002&&d.y>.005){
+  /* Project onto a deck overhead; the divide is what gives it perspective.
+     The frequency has to put several noise cells across the field of view or
+     the whole sky samples one value of the fbm and reads as flat haze. */
+  vec2 uv=d.xz/(d.y+.10)*.9+vec2(time*.0045,time*.0021);
+  float n=fbm(uv*5.0);
+  n=n*.70+fbm(uv*13.0)*.30;
+  /* coverage, softened right down at the horizon so the deck meets the haze */
+  float cov=smoothstep(.42,.60,n)*cloud;
+  cov*=smoothstep(.0,.16,d.y);
+  /* a second, higher-threshold sample stands in for depth inside the cloud */
+  float core=smoothstep(.52,.74,n);
+  vec3 cc=mix(cloudDark,cloudCol,core);
+  /* silver lining on whichever side the sun is */
+  float rim=pow(max(dot(d,sd),0.),3.)*(1.-core);
+  cc+=sunCol*rim*.55*sunAmt;
+  c=mix(c,cc,cov*.92);
+ }
+ /* This material is a raw ShaderMaterial, so it never goes through the
+    renderer's tone mapping the way every lit surface does. It has to carry
+    its own daylight gain or the sky sits darker than the street below it. */
+ c=pow(c,vec3(2.2))*(1.15+sunAmt*.55);
+ gl_FragColor=vec4(c,1.);
+}`}));
 scene.add(sky);
 const sunSprite=new THREE.Sprite(new THREE.SpriteMaterial({map:radialTex('rgba(255,225,170,1)'),color:0xffd9a0,transparent:true,depthWrite:false,fog:false}));
 sunSprite.scale.set(170,170,1);scene.add(sunSprite);
@@ -401,6 +456,33 @@ const blockType=[];
  ground.rotation.x=-Math.PI/2;ground.receiveShadow=true;scene.add(ground);
 }
 
+/* Asphalt is rough everywhere - the variation that matters is between "rough"
+   and "slightly less rough", not between rough and mirror. Feeding a colour
+   photo straight in as a roughness map put the whole carriageway at about
+   0.26 and turned it into wet plastic. This remaps the tile's own luminance
+   into a narrow band near the top of the range, so polished wheel tracks
+   catch a little more light than the chip beside them and nothing anywhere
+   becomes glossy. */
+function roughFromLuma(img,lo,hi){
+ const N=Math.min(img.width||512,512);
+ const c=document.createElement('canvas');c.width=c.height=N;
+ const g=c.getContext('2d',{willReadFrequently:true});
+ g.drawImage(img,0,0,N,N);
+ const d=g.getImageData(0,0,N,N);
+ const a=d.data;
+ for(let i=0;i<N*N;i++){
+  const l=(a[i*4]*.299+a[i*4+1]*.587+a[i*4+2]*.114)/255;
+  /* darker aggregate is the polished part, so it gets the LOWER roughness */
+  const v=Math.round((lo+(hi-lo)*l)*255);
+  a[i*4]=a[i*4+1]=a[i*4+2]=v;a[i*4+3]=255;
+ }
+ g.putImageData(d,0,0);
+ const t=new THREE.CanvasTexture(c);
+ t.wrapS=t.wrapT=THREE.RepeatWrapping;
+ t.anisotropy=Math.min(renderer.capabilities.getMaxAnisotropy(),TIERS[qual].aniso);
+ return t;
+}
+
 /* Turn a texture's luminance into a tangent-space normal map. The generated
    tiles carry plenty of fine detail (measured: more than the pavement tile),
    but with no relief it all reads as a flat print. Wrapped sampling keeps it
@@ -441,7 +523,10 @@ function normalFromHeight(img,strength){
    So the carriageway is real geometry now, with UVs derived from world
    position so one texture tile covers a fixed number of metres and the detail
    survives all the way down to the bumper. Still one draw call. */
-const ROAD_TILE=9;
+/* Metres of road per texture tile. At 9 the aggregate was averaging out to a
+   flat grey by the time it reached the bumper; 6.5 puts enough chip in front
+   of the camera to read as a surface you are driving ON. */
+const ROAD_TILE=6.5;
 let roadMat=null,roadMesh=null;
 {
  const pos=[],uv=[],nrm=[],col=[];
@@ -504,7 +589,7 @@ let roadMat=null,roadMesh=null;
     coarse chip beside them. A roughness map built from the tile's own
     luminance restores that variation, and the vertex wear above modulates the
     albedo on top of it. */
- roadMat=new THREE.MeshStandardMaterial({color:0x4a4d52,roughness:1,metalness:.04,envMapIntensity:.22,
+ roadMat=new THREE.MeshStandardMaterial({color:0x54565b,roughness:1,metalness:.02,envMapIntensity:.20,
                                          vertexColors:true,
                                          polygonOffset:true,polygonOffsetFactor:-2,polygonOffsetUnits:-2});
  roadMesh=new THREE.Mesh(g,roadMat);
@@ -989,21 +1074,98 @@ const lampGlows=[],GLOW_DIST=115;
  const parks=[];
  for(let bi=0;bi<BLOCKS;bi++)for(let bj=0;bj<BLOCKS;bj++)if(blockType[bi][bj]==='park')
   parks.push({x:roadC(bi)+ROAD/2+BLOCK/2,z:roadC(bj)+ROAD/2+BLOCK/2});
- const trunkMat=new THREE.MeshLambertMaterial({color:0x8a6a4a}),leafMat=new THREE.MeshLambertMaterial({color:0x3f7d4b});
- const trunkGeo=new THREE.CylinderGeometry(.14,.28,6.5,6),leafGeo=new THREE.ConeGeometry(.5,3.6,4);
- function makePalm(){
-  const g=new THREE.Group();
-  const t=new THREE.Mesh(trunkGeo,trunkMat);t.position.y=3.25;t.castShadow=true;g.add(t);
-  for(let k=0;k<5;k++){
-   const hold=new THREE.Group();hold.position.y=6.4;hold.rotation.y=k/5*6.283+rand(.5);
-   const leaf=new THREE.Mesh(leafGeo,leafMat);leaf.rotation.x=Math.PI/2+.5;leaf.position.z=1.7;
-   hold.add(leaf);g.add(hold);
+ /* Palms used to be five four-sided cones, single sided, radiating from one
+    point. A four-sided cone is a thin spike, and single-sided means the far
+    face of every frond is culled - so from most angles you were looking at
+    five slivers with the sky between them, which is exactly what "the trees
+    are transparent" describes. Fronds are real blades now: a tapered, drooping
+    strip with width, drawn on BOTH sides so there is no angle that sees
+    through one, and there are nine of them in two tiers instead of five in a
+    ring. Nothing here is animated, and it never was, so the whole canopy for
+    the whole map merges into one mesh per material - more trees for fewer
+    draw calls than the old ones cost. */
+ const trunkMat=new THREE.MeshLambertMaterial({color:0x8a6a4a});
+ const leafMat=new THREE.MeshLambertMaterial({color:0x3f7d4b,side:THREE.DoubleSide});
+ const leafMat2=new THREE.MeshLambertMaterial({color:0x4e8a44,side:THREE.DoubleSide});
+ /* one frond: a strip that tapers to a point and sags under its own weight */
+ function frondGeo(len,wid,droop){
+  const SEG=5,pos=[],nrm=[],uv=[],idx=[];
+  for(let i=0;i<=SEG;i++){
+   const t=i/SEG;
+   const w=wid*(1-t*.82)*(t<.18?t/.18:1);
+   const x=len*t, y=-droop*t*t;
+   pos.push(x,y,-w, x,y,w);
+   nrm.push(0,1,0, 0,1,0);
+   uv.push(t,0, t,1);
   }
-  g.rotation.y=rand(6.3);return g;
+  for(let i=0;i<SEG;i++){
+   const a=i*2,b=i*2+1,c=(i+1)*2,d=(i+1)*2+1;
+   idx.push(a,c,b, b,c,d);
+  }
+  const g=new THREE.BufferGeometry();
+  g.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));
+  g.setAttribute('normal',new THREE.Float32BufferAttribute(nrm,3));
+  g.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));
+  g.setIndex(idx);
+  return g;
  }
- for(let i=0;i<22;i++){const a=rand(6.3),r=GS/2-rand(8,24);const p=makePalm();p.position.set(Math.cos(a)*r,0,Math.sin(a)*r);scene.add(p)}
- for(const pk of parks)for(let k=0;k<3;k++){const p=makePalm();p.position.set(pk.x+rand(-14,14),0,pk.z+rand(-14,14));
-  addProp(p.position.x,p.position.z,.42);scene.add(p)}
+ const trunkBits=[],leafBits=[],leafBits2=[];
+ const _m4=()=>new THREE.Matrix4();
+ function addPalm(px,pz){
+  const H=rand(5.6,7.6), lean=rand(.03,.10), spin=rand(6.283);
+  const tr=new THREE.CylinderGeometry(.13,.27,H,7).translate(0,H/2,0);
+  tr.applyMatrix4(_m4().makeRotationZ(lean));
+  trunkBits.push(tr.translate(px,0,pz));
+  const tipX=Math.sin(lean)*H;
+  for(let k=0;k<9;k++){
+   const tier=k<5?0:1;
+   const len=tier?rand(1.9,2.4):rand(2.5,3.2);
+   const f=frondGeo(len,rand(.30,.42),tier?1.5:1.0);
+   /* pitch the blade up, then let the droop carry it back down */
+   f.applyMatrix4(_m4().makeRotationZ(tier?-.10:.34));
+   f.applyMatrix4(_m4().makeRotationY(spin+(k/(tier?4:5))*6.283+rand(.4)));
+   f.translate(px+tipX,H-(tier?.30:0),pz);
+   (Math.random()<.5?leafBits:leafBits2).push(f);
+  }
+  /* a knot of nuts under the crown - it is what stops the top reading as a
+     bare spike from underneath */
+  const nut=new THREE.IcosahedronGeometry(.34,0).translate(px+tipX,H-.42,pz);
+  leafBits2.push(nut);
+ }
+ /* a broadleaf: overlapping closed blobs, so there is no angle that sees in */
+ function addBroadleaf(px,pz){
+  const H=rand(2.6,3.8),R=rand(1.7,2.6);
+  trunkBits.push(new THREE.CylinderGeometry(.16,.26,H,7).translate(px,H/2,pz));
+  const n=3+((Math.random()*2)|0);
+  for(let k=0;k<n;k++){
+   const b=new THREE.IcosahedronGeometry(R*rand(.62,.92),1);
+   b.applyMatrix4(_m4().makeScale(1,rand(.72,.92),1));
+   b.translate(px+rand(-R*.45,R*.45),H+rand(.1,R*.55),pz+rand(-R*.45,R*.45));
+   (k%2?leafBits:leafBits2).push(b);
+  }
+ }
+ /* the shoreline palms */
+ for(let i=0;i<30;i++){const a=rand(6.3),r=GS/2-rand(8,26);addPalm(Math.cos(a)*r,Math.sin(a)*r)}
+ /* parks get a proper stand of trees rather than three lonely palms */
+ for(const pk of parks){
+  for(let k=0;k<4;k++){const x=pk.x+rand(-15,15),z=pk.z+rand(-15,15);addPalm(x,z);addProp(x,z,.34)}
+  for(let k=0;k<5;k++){const x=pk.x+rand(-16,16),z=pk.z+rand(-16,16);addBroadleaf(x,z);addProp(x,z,.30)}
+ }
+ /* street trees: a palm on the pavement at every other junction corner */
+ for(let i=0;i<=BLOCKS;i++)for(let j=0;j<=BLOCKS;j++){
+  if((i+j)%2===0)continue;
+  const x=roadC(i)+ROAD/2+2.3, z=roadC(j)+ROAD/2+3.4;
+  if(Math.abs(x)>CITY/2||Math.abs(z)>CITY/2)continue;
+  addPalm(x,z);addProp(x,z,.32);
+ }
+ {
+  const put=(list,mat)=>{
+   if(!list.length)return;
+   const m=new THREE.Mesh(mergeG(list),mat);
+   m.castShadow=true;m.receiveShadow=true;scene.add(m);
+  };
+  put(trunkBits,trunkMat);put(leafBits,leafMat);put(leafBits2,leafMat2);
+ }
  lampHeadMat=new THREE.MeshBasicMaterial({color:0x3a3f45});
  lampGlowMat=new THREE.SpriteMaterial({map:radialTex('rgba(255,214,150,1)'),color:0xffd9a0,transparent:true,opacity:0,depthWrite:false,blending:THREE.AdditiveBlending,fog:false});
  const poleGeo=new THREE.CylinderGeometry(.09,.12,7,6),headGeo=new THREE.BoxGeometry(.9,.22,.35);
@@ -1082,6 +1244,139 @@ function addBlob(parent,size,y){
 const fx=[],fxPool=[];
 /* one shared texture + material for every explosion - these used to leak per blast */
 const boomTex=radialTex('rgba(255,170,60,1)');
+/* A soft, opaque puff. Smoke is not additive - additive smoke over a bright
+   daytime street glows instead of darkening, which is the one thing smoke
+   must never do. It is alpha-blended and tinted per particle, so the same
+   texture carries a wisp of white steam and a column of oily black. */
+const smokeTex=(()=>{
+ const c=document.createElement('canvas');c.width=c.height=64;
+ const g=c.getContext('2d');
+ const gr=g.createRadialGradient(32,32,0,32,32,32);
+ gr.addColorStop(0,'rgba(255,255,255,.95)');
+ gr.addColorStop(.45,'rgba(255,255,255,.45)');
+ gr.addColorStop(1,'rgba(255,255,255,0)');
+ g.fillStyle=gr;g.fillRect(0,0,64,64);
+ /* break the perfect circle up so a puff reads as vapour, not a ball */
+ g.globalCompositeOperation='destination-out';
+ for(let i=0;i<26;i++){
+  const a=Math.random()*6.283,r=18+Math.random()*15;
+  const x=32+Math.cos(a)*r,y=32+Math.sin(a)*r;
+  const rr=4+Math.random()*9;
+  const g2=g.createRadialGradient(x,y,0,x,y,rr);
+  g2.addColorStop(0,'rgba(0,0,0,.55)');g2.addColorStop(1,'rgba(0,0,0,0)');
+  g.fillStyle=g2;g.beginPath();g.arc(x,y,rr,0,7);g.fill();
+ }
+ const t=new THREE.CanvasTexture(c);t.colorSpace=THREE.SRGBColorSpace;return t;
+})();
+/* Particles are pooled and hard-capped. A burning wreck you never drive away
+   from would otherwise emit for as long as it exists, and every live sprite
+   is overdraw whether or not you are looking at it. */
+const SMOKE_MAX=90;
+const smokes=[],smokePool=[];
+const _smokeCol=new THREE.Color();
+function puff(x,y,z,o){
+ if(smokes.length>=SMOKE_MAX)return;
+ let s=smokePool.pop();
+ if(!s)s=new THREE.Sprite(new THREE.SpriteMaterial({map:smokeTex,transparent:true,
+   depthWrite:false,fog:true}));
+ s.material.opacity=o.op;
+ s.material.color.copy(o.col);
+ s.position.set(x,y,z);
+ const g=o.g||1;
+ s.scale.set(g,g,1);
+ s.material.rotation=rand(6.283);
+ scene.add(s);
+ smokes.push({s,t:0,life:o.life,g0:g,g1:o.g1||g*3,op:o.op,
+              vx:o.vx||0,vy:o.vy||1,vz:o.vz||0,fade:o.fade||0});
+}
+function updateSmoke(dt){
+ for(let i=smokes.length-1;i>=0;i--){
+  const p=smokes[i];
+  p.t+=dt;
+  const u=p.t/p.life;
+  if(u>=1){
+   scene.remove(p.s);
+   if(smokePool.length<SMOKE_MAX)smokePool.push(p.s);
+   smokes.splice(i,1);continue;
+  }
+  p.s.position.x+=p.vx*dt;
+  p.s.position.y+=p.vy*dt;
+  p.s.position.z+=p.vz*dt;
+  p.vy*=1-dt*.35;                              /* rises, then loses its lift */
+  const g=lerp(p.g0,p.g1,u);
+  p.s.scale.set(g,g,1);
+  p.s.material.rotation+=dt*.35;
+  /* hold, then fall away - a puff that starts fading immediately reads as a
+     flash rather than as something hanging in the air */
+  p.s.material.opacity=p.op*(1-Math.pow(Math.max(0,(u-p.fade)/(1-p.fade)),1.6));
+ }
+}
+const SMOKE_LIGHT=new THREE.Color(0xb9bdc2),
+      SMOKE_DARK =new THREE.Color(0x24262a),
+      SMOKE_SOOT =new THREE.Color(0x101113),
+      FIRE_HOT   =new THREE.Color(0xffb347),
+      FIRE_CORE  =new THREE.Color(0xfff0c0);
+/* How badly is this car hurt, 0 (mint) to 1 (about to go up)? */
+function hurt(c){return clamp(1-c.hp/100,0,1)}
+/* Damage you can see before it is terminal. Under about two thirds health a
+   car starts steaming from the front, and the closer it gets to dead the
+   dirtier and more urgent that plume becomes - so a car about to explode
+   announces it, and a shunt in a car park does not. */
+function carSmoke(c,dt){
+ if(c.gone||c.dead)return;
+ const h=hurt(c);
+ if(h<.35)return;
+ c._smk=(c._smk||0)-dt;
+ if(c._smk>0)return;
+ c._smk=lerp(.30,.07,(h-.35)/.65);
+ const u=c.m&&c.m.userData;
+ const nose=((u&&u.len)||4.6)*.42;
+ const x=c.x+Math.sin(c.h)*nose, z=c.z+Math.cos(c.h)*nose;
+ const heavy=(h-.35)/.65;
+ _smokeCol.copy(SMOKE_LIGHT).lerp(SMOKE_DARK,heavy);
+ puff(x+rand(-.3,.3),.95+rand(0,.3),z+rand(-.3,.3),{
+  col:_smokeCol, op:lerp(.20,.60,heavy), life:lerp(1.1,2.4,heavy),
+  g:lerp(.9,1.5,heavy), g1:lerp(3.0,6.0,heavy),
+  vy:lerp(1.4,2.4,heavy), vx:rand(-.35,.35)+c.vx*.10, vz:rand(-.35,.35)+c.vz*.10,
+  fade:.25});
+ /* the last of the health burns rather than steams */
+ if(h>.80){
+  _smokeCol.copy(FIRE_HOT).lerp(FIRE_CORE,Math.random()*.6);
+  puff(x+rand(-.25,.25),.75+rand(0,.25),z+rand(-.25,.25),{
+   col:_smokeCol, op:.85, life:.34, g:.7, g1:1.5, vy:2.4, fade:0});
+ }
+}
+/* Only cars near enough to be seen bother emitting. A wreck four blocks away
+   costs nothing, and the particle cap is spent on the ones on screen. */
+function updateCarFx(dt){
+ for(let i=0;i<cars.length;i++){
+  const c=cars[i];
+  if(c.gone)continue;
+  const dx=c.x-player.x,dz=c.z-player.z;
+  if(dx*dx+dz*dz>28900)continue;                  /* 170m */
+  if(!c.dead){carSmoke(c,dt);continue}
+  if(c.burn<=0)continue;
+  c.burn-=dt;
+  c._smk=(c._smk||0)-dt;
+  if(c._smk>0)continue;
+  c._smk=rand(.12,.26);
+  const fade=clamp(c.burn/8,0,1);
+  _smokeCol.copy(SMOKE_DARK).lerp(SMOKE_SOOT,Math.random()*.7);
+  puff(c.x+rand(-.7,.7),rand(.7,1.4),c.z+rand(-.7,.7),{
+   col:_smokeCol,op:.55*fade,life:rand(2.4,4.2),g:1.6,g1:rand(5,8),
+   vy:rand(1.5,2.6),vx:rand(-.4,.4),vz:rand(-.4,.4),fade:.3});
+  /* while it is still properly alight, flame on top of the soot */
+  if(c.burn>11&&Math.random()<.75){
+   _smokeCol.copy(FIRE_HOT).lerp(FIRE_CORE,Math.random()*.5);
+   puff(c.x+rand(-.5,.5),rand(.4,1.0),c.z+rand(-.5,.5),{
+    col:_smokeCol,op:.9,life:.3,g:.9,g1:1.9,vy:2.8,fade:0});
+  }
+ }
+}
+
+/* The moment it goes. A fireball, a shockwave of soot, and a column that
+   keeps rising afterwards - the bit that makes a wreck read as a wreck from
+   across the map instead of a black car parked oddly. */
 function explode(x,z){
  let s=fxPool.pop();
  if(!s){
@@ -1089,6 +1384,20 @@ function explode(x,z){
  }
  s.material.opacity=1;s.position.set(x,1.6,z);scene.add(s);
  fx.push({s,t:0});
+ for(let i=0;i<7;i++){
+  const a=rand(6.283),r=rand(.2,1.9);
+  _smokeCol.copy(FIRE_CORE).lerp(FIRE_HOT,Math.random());
+  puff(x+Math.cos(a)*r,rand(.5,2.2),z+Math.sin(a)*r,{
+   col:_smokeCol,op:.9,life:rand(.35,.6),g:1.4,g1:3.4,
+   vy:rand(2.5,5),vx:Math.cos(a)*rand(1,3.5),vz:Math.sin(a)*rand(1,3.5),fade:0});
+ }
+ for(let i=0;i<11;i++){
+  const a=rand(6.283),r=rand(.3,2.6);
+  _smokeCol.copy(SMOKE_DARK).lerp(SMOKE_SOOT,Math.random());
+  puff(x+Math.cos(a)*r,rand(.6,2.6),z+Math.sin(a)*r,{
+   col:_smokeCol,op:.72,life:rand(2.2,4.4),g:1.8,g1:rand(6,10),
+   vy:rand(1.6,3.4),vx:Math.cos(a)*rand(.4,1.7),vz:Math.sin(a)*rand(.4,1.7),fade:.30});
+ }
  sfxCrash(14);
 }
 
@@ -1290,6 +1599,16 @@ function killCar(c){
   const u=ch.userData;
   if(u&&(u.glass||u.optics))ch.material=wreckMat;
  }
+ /* A burnt-out car is not the same shape as a clean one. Repainting it black
+    and leaving the panels straight is what made destruction read as a colour
+    change; the shell settles onto its springs, the roof takes a set, and the
+    whole thing sits slightly askew. It is cheap - a scale and two angles on a
+    group that already exists - and it is what sells it at a glance. */
+ c.m.scale.set(rand(.94,1.0),rand(.80,.90),rand(.95,1.02));
+ c.wreckPit=rand(-.05,.05);c.wreckRoll=rand(-.09,.09);
+ c.m.rotation.set(c.wreckPit,c.h,c.wreckRoll);
+ c.m.position.y=-.10;
+ c.burn=rand(14,20);                     /* how long it keeps smoking */
  explode(c.x,c.z);
  if(c===player.car){exitCar();player.hp-=30;if(player.hp<=0)die(false)}
 }
@@ -1385,7 +1704,10 @@ function syncCar(c){
  const m=c.m;
  m.position.set(c.x,0,c.z);
  if(m.rotation.order!=='YXZ')m.rotation.order='YXZ';
- m.rotation.set(c.dead?0:(c.pit||0),c.h,c.dead?0:(c.roll||0));
+ if(c.dead){
+  m.position.y=-.10;
+  m.rotation.set(c.wreckPit||0,c.h,c.wreckRoll||0);
+ }else m.rotation.set(c.pit||0,c.h,c.roll||0);
 }
 /* Giving every hydrant, bench and lamp post a collision box took the list from
    150 to about 1200, and a linear scan of that per collider per frame was
@@ -1431,26 +1753,76 @@ function forEachAABB(x1,z1,x2,z2,fn){
    padded almost half a metre onto each flank, so you clipped kerbs, props and
    parked cars through thin air beside you. Vehicles now pass the world-aligned
    extents of their own oriented body. */
-/* world-axis half-extents of a car's oriented body */
+/* Half-extents of a car's body, and the body's own axes.
+   dims are the SHELL. Colliding at the full shell means the paint reports a
+   scrape at the instant it touches, which reads as a phantom hit; a small
+   inset is what makes "close" feel close instead of fatal. */
+const BODY_INSET=.10;
+function carOBB(c){
+ const u=c.m&&c.m.userData;
+ const fx=Math.sin(c.h), fz=Math.cos(c.h);
+ return {x:c.x,z:c.z,fx,fz,
+         hw:Math.max(.2,(((u&&u.wid)||1.9)*.5)-BODY_INSET),
+         hl:Math.max(.2,(((u&&u.len)||4.6)*.5)-BODY_INSET)};
+}
+/* World-axis half-extents of a car's oriented body - the BROADPHASE bound
+   only. It is the axis-aligned box that CONTAINS the rotated car, so at 45
+   degrees it is nearly twice the car's own width. Using it as the contact
+   shape is what padded every kerb, bin and parked car with a metre of
+   invisible bodywork. It picks candidates now; carOBB decides contact. */
 function carExtents(c){
  const u=c.m&&c.m.userData;
  const hw=((u&&u.wid)||1.9)*.5, hl=((u&&u.len)||4.6)*.5;
  const sa=Math.abs(Math.sin(c.h)), ca=Math.abs(Math.cos(c.h));
  return [sa*hl+ca*hw, ca*hl+sa*hw];
 }
-function collideStatic(o,r,rz){
+/* Oriented box against an axis-aligned box, by separating axes. Four axes is
+   the whole test in 2D: the static box's world X and Z, and the car's own
+   forward and lateral. Returns the shallowest penetration, which is the
+   direction the car must move to stop overlapping - so a car that clips a
+   kerb slides along it instead of being shoved sideways into traffic. */
+function obbVsAABB(o,b){
+ const rx=o.fz, rz=-o.fx;                    /* the body's lateral axis */
+ const bcx=(b.x1+b.x2)*.5, bcz=(b.z1+b.z2)*.5;
+ const bhx=(b.x2-b.x1)*.5, bhz=(b.z2-b.z1)*.5;
+ const dx=o.x-bcx, dz=o.z-bcz;
+ const oX=bhx+o.hl*Math.abs(o.fx)+o.hw*Math.abs(rx)-Math.abs(dx); if(oX<=0)return null;
+ const oZ=bhz+o.hl*Math.abs(o.fz)+o.hw*Math.abs(rz)-Math.abs(dz); if(oZ<=0)return null;
+ const oF=o.hl+bhx*Math.abs(o.fx)+bhz*Math.abs(o.fz)-Math.abs(dx*o.fx+dz*o.fz); if(oF<=0)return null;
+ const oR=o.hw+bhx*Math.abs(rx)+bhz*Math.abs(rz)-Math.abs(dx*rx+dz*rz); if(oR<=0)return null;
+ if(oX<=oZ&&oX<=oF&&oX<=oR)return{nx:dx<0?-1:1,nz:0,pen:oX};
+ if(oZ<=oF&&oZ<=oR)return{nx:0,nz:dz<0?-1:1,pen:oZ};
+ if(oF<=oR){const sg=(dx*o.fx+dz*o.fz)<0?-1:1;return{nx:o.fx*sg,nz:o.fz*sg,pen:oF}}
+ const sg=(dx*rx+dz*rz)<0?-1:1;return{nx:rx*sg,nz:rz*sg,pen:oR};
+}
+/* obb is optional. Without one this stays the circular test, which is right
+   for a person; with one the contact is the car's real footprint. */
+function collideStatic(o,r,rz,obb){
  if(rz===undefined)rz=r;
  let imp=0;
  forEachAABB(o.x-r,o.z-rz,o.x+r,o.z+rz,(b)=>{
   {
    if(b.off)return;
-   if(o.x>b.x1-r&&o.x<b.x2+r&&o.z>b.z1-rz&&o.z<b.z2+rz){
-   const px1=o.x-(b.x1-r),px2=(b.x2+r)-o.x,pz1=o.z-(b.z1-rz),pz2=(b.z2+rz)-o.z;
-   const m=Math.min(px1,px2,pz1,pz2);
    /* A hydrant is not a tower block. Street props barely slow you and report
       a fraction of the impact, so clipping a few on a kerb no longer totals
       the car and throws you out of it. */
    const k=b.soft?-.06:-.35, w=b.soft?.18:1;
+   if(obb){
+    obb.x=o.x;obb.z=o.z;
+    const hit=obbVsAABB(obb,b);
+    if(!hit)return;
+    o.x+=hit.nx*hit.pen;o.z+=hit.nz*hit.pen;
+    obb.x=o.x;obb.z=o.z;
+    const into=o.vx*hit.nx+o.vz*hit.nz;
+    if(into<0){
+     imp=Math.max(imp,-into*w);
+     o.vx-=hit.nx*into*(1-k);o.vz-=hit.nz*into*(1-k);
+    }
+    return;
+   }
+   if(o.x>b.x1-r&&o.x<b.x2+r&&o.z>b.z1-rz&&o.z<b.z2+rz){
+   const px1=o.x-(b.x1-r),px2=(b.x2+r)-o.x,pz1=o.z-(b.z1-rz),pz2=(b.z2+rz)-o.z;
+   const m=Math.min(px1,px2,pz1,pz2);
    if(m===px1){o.x=b.x1-r;if(o.vx>0){imp=Math.max(imp,o.vx*w);o.vx*=k}}
    else if(m===px2){o.x=b.x2+r;if(o.vx<0){imp=Math.max(imp,-o.vx*w);o.vx*=k}}
    else if(m===pz1){o.z=b.z1-rz;if(o.vz>0){imp=Math.max(imp,o.vz*w);o.vz*=k}}
@@ -1463,25 +1835,38 @@ function collideStatic(o,r,rz){
  if(Math.abs(o.z)>lim){o.z=clamp(o.z,-lim,lim);o.vz*=-.3}
  return imp;
 }
+/* Oriented box against oriented box. The same four-axis test, with both
+   boxes contributing their own pair of axes. n points from A to B. */
+function obbVsOBB(A,B){
+ const ax=[[A.fx,A.fz],[A.fz,-A.fx],[B.fx,B.fz],[B.fz,-B.fx]];
+ const dx=B.x-A.x, dz=B.z-A.z;
+ let best=1e9,bnx=0,bnz=0;
+ for(let i=0;i<4;i++){
+  const nx=ax[i][0], nz=ax[i][1];
+  const pa=A.hl*Math.abs(nx*A.fx+nz*A.fz)+A.hw*Math.abs(nx*A.fz-nz*A.fx);
+  const pb=B.hl*Math.abs(nx*B.fx+nz*B.fz)+B.hw*Math.abs(nx*B.fz-nz*B.fx);
+  const ov=pa+pb-Math.abs(dx*nx+dz*nz);
+  if(ov<=0)return null;
+  if(ov<best){best=ov;const sg=(dx*nx+dz*nz)<0?-1:1;bnx=nx*sg;bnz=nz*sg}
+ }
+ return {nx:bnx,nz:bnz,pen:best};
+}
 function separate(a,b){
  if(a.gone||b.gone)return;
  const dx=b.x-a.x,dz=b.z-a.z,d=Math.hypot(dx,dz);
  if(d===0)return;
- const nx=dx/d,nz=dz/d;
- /* A single 4.4m circle round every car meant two saloons sitting side by
-    side "touched" with nearly three metres of daylight between them - you
-    heard the crunch before anything got close. Each car now reports how far
-    its own body actually reaches along the line joining them, so a door-to-
-    door scrape and a nose-to-tail shunt both land at the right moment. */
- const reach=(c)=>{
-  const fx=Math.sin(c.h),fz=Math.cos(c.h);
-  const u=c.m&&c.m.userData;
-  const hw=((u&&u.wid)||1.9)*.5, hl=((u&&u.len)||4.6)*.5;
-  return Math.abs(nx*fz-nz*fx)*hw+Math.abs(nx*fx+nz*fz)*hl;
- };
- const need=reach(a)+reach(b);
- if(d>need)return;
- const push=(need-d)/2;
+ if(d>11)return;                       /* nothing this far apart can touch */
+ /* Two boxes, four axes, exact.
+    The previous test measured how far each body reaches along the line
+    joining the centres and compared that to the distance. That is a support
+    radius, and for boxes it is only tight when they meet face to face -
+    approach a parked car diagonally and it claims contact with over a metre
+    of clear air at the corner, which is the crunch you heard while still
+    visibly short of the paint. Separating axes has no such slack: if the
+    boxes do not overlap, no axis says they do. */
+ const hit=obbVsOBB(carOBB(a),carOBB(b));
+ if(!hit)return;
+ const nx=hit.nx, nz=hit.nz, push=hit.pen/2;
  if(!a.dead){a.x-=nx*push;a.z-=nz*push}
  if(!b.dead){b.x+=nx*push;b.z+=nz*push}
  const rel=Math.abs((a.vx-b.vx)*nx+(a.vz-b.vz)*nz);
@@ -1503,6 +1888,11 @@ function separate(a,b){
 
 /* ---- player ---- */
 const player={mode:'foot',x:roadC(4)+5,z:roadC(4)+5,h:Math.PI/2,vx:0,vz:0,hp:100,armour:0,money:500,wanted:0,car:null,walkPhase:0};
+/* Melee. punchT counts DOWN through the swing, so the strike lands partway
+   through rather than on the keypress - the difference between a hit that
+   connects with the animation and one that fires before the arm has moved. */
+const PUNCH_TIME=.40, PUNCH_STRIKE=.15, PUNCH_REACH=2.05;
+let punchT=0,punchLanded=false,punchSide=1;
 const playerMesh=new THREE.Group();playerMesh.rotation.order='YXZ';
 let legL,legR,armL,armR;
 {
@@ -1596,6 +1986,11 @@ function updateFoot(dt){
  if(!moving&&Math.abs(player.vx)<.04&&Math.abs(player.vz)<.04){player.vx=0;player.vz=0}
  player.x+=player.vx*dt;player.z+=player.vz*dt;
 
+ if(punchT>0){
+  punchT-=dt;
+  if(!punchLanded&&punchT<=PUNCH_TIME-PUNCH_STRIKE){punchLanded=true;resolvePunch()}
+  if(punchT<0)punchT=0;
+ }
  const gait=Math.hypot(player.vx,player.vz);
  /* The phase used to advance by 3.5*dt regardless of speed, so a stationary
     character kept marching on the spot. It only turns over while there is
@@ -1621,6 +2016,13 @@ function updateFoot(dt){
   const sw=Math.sin(player.walkPhase)*(.32+amp*.5);
   legL.rotation.x=sw;legR.rotation.x=-sw;
   armL.rotation.x=-sw*(.6+amp*.5);armR.rotation.x=sw*(.6+amp*.5);
+  if(punchT>0){
+   const u=1-punchT/PUNCH_TIME;
+   /* out fast, back slow - a jab, not a wave */
+   const th=u<.38?(u/.38):1-((u-.38)/.62);
+   const arm=punchSide>0?armR:armL;
+   arm.rotation.x=-th*2.25;
+  }
   playerMesh.rotation.x=amp*.09;
   playerMesh.position.y=Math.abs(Math.sin(player.walkPhase))*amp*.055;
  }
@@ -1630,18 +2032,32 @@ function updateFoot(dt){
     car had no collision at all and you strolled straight through it, while a
     moving one could clip you from inside its own bodywork. Both now use the
     real footprint. */
+ /* How far is the walker from the car's actual bodywork?
+    "Reach along the line between the centres" is a support radius: the width
+    of the car's shadow on that line, not the distance to the panel. Stand off
+    a rear corner and it claims contact from well over a metre away, which is
+    the hit-from-thin-air you feel walking past a parked car. Fold the walker
+    into the car's own frame instead, clamp to the box, and the gap is real. */
+ const PGIRTH=.34;
  for(const c of cars){
   if(c.gone)continue;
   const dx=player.x-c.x, dz=player.z-c.z;
-  const d=Math.hypot(dx,dz);
-  if(d>7||d===0)continue;
-  const fx=Math.sin(c.h),fz=Math.cos(c.h);
-  const u=c.m&&c.m.userData;
-  const hw=((u&&u.wid)||1.9)*.5, hl=((u&&u.len)||4.6)*.5;
-  const nx=dx/d, nz=dz/d;
-  const reach=Math.abs(nx*fz-nz*fx)*hw+Math.abs(nx*fx+nz*fz)*hl;
-  const need=reach+.42;                       /* plus the walker's own girth */
-  if(d>need)continue;
+  if(dx*dx+dz*dz>49)continue;
+  const o=carOBB(c);
+  const rx=o.fz, rz=-o.fx;
+  const lf=dx*o.fx+dz*o.fz;                   /* along the car */
+  const ls=dx*rx+dz*rz;                       /* across the car */
+  const cf=clamp(lf,-o.hl,o.hl), cs=clamp(ls,-o.hw,o.hw);
+  const ef=lf-cf, es=ls-cs;                   /* offset from the nearest panel */
+  const gap=Math.hypot(ef,es);
+  if(gap>PGIRTH)continue;
+  let nf,ns,pen;
+  if(gap<1e-5){                               /* inside: leave by the near face */
+   const df=o.hl-Math.abs(lf), ds=o.hw-Math.abs(ls);
+   if(df<ds){nf=lf<0?-1:1;ns=0;pen=df+PGIRTH}
+   else{nf=0;ns=ls<0?-1:1;pen=ds+PGIRTH}
+  }else{nf=ef/gap;ns=es/gap;pen=PGIRTH-gap}
+  const nx=nf*o.fx+ns*rx, nz=nf*o.fz+ns*rz;
   const sp=c.ai==='traffic'?c.spd:c.sp;
   if(sp>7&&!c.dead){
    player.hp-=sp*2.2;camShake=.3;sfxCrash(8);
@@ -1650,12 +2066,72 @@ function updateFoot(dt){
    if(player.hp<=0){die(false);return}
   }else{
    /* slow or parked: just refuse to let them pass through the bodywork */
-   const push=need-d;
-   player.x+=nx*push;player.z+=nz*push;
+   player.x+=nx*pen;player.z+=nz*pen;
    const into=player.vx*nx+player.vz*nz;
    if(into<0){player.vx-=nx*into;player.vz-=nz*into}
   }
  }
+}
+
+/* ---- melee ----
+   Reach is measured to the pedestrian, in a cone in front of you, and the
+   nearest one inside it takes the hit. It runs through commitCrime like
+   everything else, so throwing a punch in a crowd is witnessed and described
+   exactly the way a hit-and-run is - the whole point of the memory system is
+   that it does not care HOW you did it, only who was watching. */
+function punch(){
+ if(punchT>0)return;
+ punchT=PUNCH_TIME;punchLanded=false;punchSide=-punchSide;
+ sfx(190,.09,'square',.05);
+}
+function resolvePunch(){
+ const fx=Math.sin(player.h),fz=Math.cos(player.h);
+ let best=null,bd=1e9;
+ for(const p of peds){
+  if(p.state==='dead')continue;
+  const dx=p.x-player.x,dz=p.z-player.z;
+  const d=Math.hypot(dx,dz);
+  if(d>PUNCH_REACH||d<1e-4)continue;
+  if((dx*fx+dz*fz)/d<.42)continue;            /* roughly a 130 degree arc */
+  if(d<bd){bd=d;best=p}
+ }
+ if(best){
+  const dx=best.x-player.x,dz=best.z-player.z,d=Math.hypot(dx,dz)||1;
+  best.hp=(best.hp===undefined?100:best.hp)-46;
+  best.knx=dx/d;best.knz=dz/d;
+  camShake=Math.max(camShake,.09);
+  sfx(120,.16,'square',.16);sfx(320,.07,'triangle',.09);
+  if(best.hp<=0){
+   killPed(best,true);
+  }else{
+   best.state='hit';best.hitT=.85;
+   commitCrime('attacked someone',2,best);
+   /* everyone close enough to see it wants to be somewhere else */
+   for(const q of peds){
+    if(q===best||q.state==='dead'||q.state==='snitch')continue;
+    if(Math.hypot(q.x-player.x,q.z-player.z)>13)continue;
+    q.state='flee';q.fleeT=rand(1.8,3.2);
+    q.h=Math.atan2(q.x-player.x,q.z-player.z);
+   }
+  }
+  return;
+ }
+ /* nothing to hit but bodywork - dent it, and set the alarms off */
+ for(const c of cars){
+  if(c.gone||c.dead)continue;
+  const dx=c.x-player.x,dz=c.z-player.z;
+  if(dx*dx+dz*dz>16)continue;
+  const o=carOBB(c);
+  const rx=o.fz,rz=-o.fx;
+  const lf=dx*o.fx+dz*o.fz, ls=dx*rx+dz*rz;
+  const ef=lf-clamp(lf,-o.hl,o.hl), es=ls-clamp(ls,-o.hw,o.hw);
+  if(Math.hypot(ef,es)>PUNCH_REACH)continue;
+  if((dx*fx+dz*fz)<0)continue;
+  c.hp-=5;sfx(150,.13,'square',.13);camShake=Math.max(camShake,.05);
+  if(c.hp<=0&&!c.dead)killCar(c);
+  return;
+ }
+ sfx(220,.05,'sine',.03);                      /* a swing at nothing */
 }
 
 /* ---- mission markers ---- */
@@ -1746,7 +2222,7 @@ function spawnPed(){
  }
  g.userData.limbs=limbs;
  scene.add(g);
- const p={m:g,axis:pick(['x','z']),line:randi(0,BLOCKS),side:pick([-1,1]),dir:pick([-1,1]),t:rand(-CITY/2,CITY/2),state:'walk',fleeT:0,h:0,deadT:0,x:0,z:0,step:rand(6.283)};
+ const p={m:g,axis:pick(['x','z']),line:randi(0,BLOCKS),side:pick([-1,1]),dir:pick([-1,1]),t:rand(-CITY/2,CITY/2),state:'walk',fleeT:0,h:0,deadT:0,x:0,z:0,step:rand(6.283),hp:100,hitT:0,knx:0,knz:0};
  initWitness(p,shirtIx);
  syncPed(p);peds.push(p);
 }
@@ -1797,13 +2273,29 @@ function updatePedLOD(){
 function updatePeds(dt){
  for(const p of peds){
   if(p.state==='dead'){p.deadT+=dt;
-   if(p.deadT>5){p.state='walk';p.m.rotation.x=0;p.m.position.y=0;stepLimbs(p,0,0);p.line=randi(0,BLOCKS);p.axis=pick(['x','z']);p.t=rand(-CITY/2,CITY/2);syncPed(p)}
+   if(p.deadT>5){p.state='walk';p.hp=100;p.m.rotation.x=0;p.m.position.y=0;stepLimbs(p,0,0);p.line=randi(0,BLOCKS);p.axis=pick(['x','z']);p.t=rand(-CITY/2,CITY/2);syncPed(p)}
    continue}
   let hit=false;
   for(const c of cars){if(c.gone||c.dead)continue;
    const sp=c.ai==='traffic'?c.spd:c.sp;
    if(sp>7&&Math.hypot(c.x-p.x,c.z-p.z)<1.9){killPed(p,c.driver==='player');hit=true;break}}
   if(hit)continue;
+  if(p.state==='hit'){
+   /* knocked back, off balance, then they run */
+   p.hitT-=dt;
+   const u=clamp(p.hitT/.85,0,1);
+   p.x+=(p.knx||0)*5.2*u*dt;p.z+=(p.knz||0)*5.2*u*dt;
+   p.m.position.set(p.x,0,p.z);
+   p.m.rotation.y=p.h;
+   p.m.rotation.x=-u*.45;                     /* reeling backwards */
+   stepLimbs(p,1.2,dt);
+   if(p.hitT<=0){
+    p.m.rotation.x=0;
+    p.state='flee';p.fleeT=rand(2.4,4.0);
+    p.h=Math.atan2(p.x-player.x,p.z-player.z);
+   }
+   continue;
+  }
   if(p.state==='snitch'){stepSnitch(p,dt);continue}
   if(p.state==='flee'){
    p.fleeT-=dt;p.x+=Math.sin(p.h)*4.6*dt;p.z+=Math.cos(p.h)*4.6*dt;stepLimbs(p,4.6,dt);
@@ -1890,7 +2382,7 @@ function updateCops(dt){
   const seek=known?dist:Math.hypot(tx-c.x,tz-c.z);
   const thr=seek>8?1:(c.sp>14?-.4:.5);
   stepCar(c,thr,steer,false,dt);
-  {const e=carExtents(c);collideStatic(c,e[0],e[1]);}
+  {const e=carExtents(c);collideStatic(c,e[0],e[1],carOBB(c));}
   c.m.position.set(c.x,0,c.z);c.m.rotation.y=c.h;
   c.m.userData.body.material=copBodyMat;
  }
@@ -2507,18 +2999,28 @@ function updateAudio(){
 /* The generated textures are baked at night - lit windows, neon spill, wet
    reflections - so the city opens after dark, where the art direction lives.
    T still cycles through to daylight. */
-let dayT=.66,nightLock=true;
-const cTopD=new THREE.Color(0x5d9ad2),cTopN=new THREE.Color(0x0a0f1e),
-cHorD=new THREE.Color(0xc3dcea),cHorN=new THREE.Color(0x141a2a),cDusk=new THREE.Color(0xff9a5c),
-sunDay=new THREE.Color(0xffe6c0),sunNight=new THREE.Color(0x8fa8ff);
+/* The clock used to start at 0.66 - the middle of the night - and lock itself
+   there, because the whole texture set is baked for night and daylight showed
+   it up. That is the right call for the art and the wrong one for the first
+   ten seconds someone spends in the game: they arrive in the dark. It opens
+   in late-afternoon sun now, with the cycle running slowly enough that there
+   are several minutes of it before the light starts to go, and Shift+T still
+   locks night for anyone who prefers it. */
+let dayT=.27,nightLock=false;
+const cTopD=new THREE.Color(0x2f7ec8),cTopN=new THREE.Color(0x0a0f1e),
+cHorD=new THREE.Color(0xd8e6ee),cHorN=new THREE.Color(0x141a2a),cDusk=new THREE.Color(0xff8a4c),
+sunDay=new THREE.Color(0xfff0d2),sunNight=new THREE.Color(0x8fa8ff);
+const cloudDayCol=new THREE.Color(0xfffaf2),cloudDayDark=new THREE.Color(0x93a9c4),
+      cloudDuskCol=new THREE.Color(0xffcfa6),cloudDuskDark=new THREE.Color(0x7b6b86);
 const sunDir=new THREE.Vector3();
+const _skyFill=new THREE.Color(0x9ec4ea);
 function updateSky(dt){
  /* Slower cycle, and time passes at half speed while it is dark - the
     textures are lit for night, so that is where the game should live. */
  /* The whole texture set is baked at night. Rather than a full day/night
     sweep that spends half its time contradicting the art, the clock runs
     dusk -> night -> dawn and skips the glare of midday. T still steps it. */
- dayT=(dayT+dt/620)%1;
+ dayT=(dayT+dt/1500)%1;
  /* Every texture is baked at night, so by default the clock stays in the
     dark half: 0.55 dusk, 0.75 midnight, 0.93 pre-dawn. T releases the lock so
     you can run a full cycle - daylight will look off against night-lit
@@ -2534,18 +3036,30 @@ function updateSky(dt){
  skyU.sunDir.value.copy(sunDir);
  skyU.sunCol.value.set(0xffd9a0);
  skyU.sunAmt.value=dayAmt;
- scene.fog.color.copy(skyU.hor.value);
+ skyU.time.value=worldClock;
+ /* clouds belong to the day; at night they would just be grey smears */
+ skyU.cloud.value=dayAmt*(rainOn?.92:.60);
+ skyU.cloudCol.value.copy(cloudDuskCol).lerp(cloudDayCol,1-duskAmt);
+ skyU.cloudDark.value.copy(cloudDuskDark).lerp(cloudDayDark,1-duskAmt);
+ if(rainOn){skyU.cloudCol.value.multiplyScalar(.72);skyU.cloudDark.value.multiplyScalar(.62)}
+ /* Fog took the horizon colour exactly, so distant buildings dissolved into a
+    band the same tone as the sky and the skyline lost its edge. Real haze is
+    a little bluer and a little darker than the sky right above it. */
+ scene.fog.color.copy(skyU.hor.value).lerp(skyU.top.value,.22*dayAmt);
  sun.color.copy(sunNight).lerp(sunDay,dayAmt);
  /* a cool key from above at night - without it the city is unlit geometry */
- hemi.color.copy(cHorN).lerp(new THREE.Color(0x7ea8d6),dayAmt);
+ hemi.color.copy(cHorN).lerp(_skyFill,dayAmt);
  /* bounce off the road is warm and dim, not neutral grey */
- hemi.groundColor.set(nightAmt>.5?0x2a2320:0x6b5f4f);
+ hemi.groundColor.set(nightAmt>.5?0x2a2320:0x7a6a54);
  /* Daylight was lit almost flat: a 1.49 key against a 0.90 hemisphere fill is
     nearly 1:1, which erases shadow contrast and with it every bit of form -
     the reason midday read as washed-out and fake while night looked good.
     Real sun-to-sky is far wider. The key goes up, the fill comes down, and
     shadows become readable without going pitch black. */
- sun.intensity=.30+dayAmt*2.15;
+ /* A wider key-to-fill ratio than before. Sunlight outdoors is roughly two
+    orders of magnitude over skylight; anything close to 1:1 erases the shadow
+    side of every surface, which is what made midday read as flat and fake. */
+ sun.intensity=.28+dayAmt*2.75;
  /* Below the horizon the sun casts nothing meaningful, but three.js was still
     re-rendering the whole city into a 2048px shadow map every frame for it.
     Dropping the pass after dark removes an entire scene traversal from the
@@ -2556,7 +3070,7 @@ function updateSky(dt){
   if(wantShadow)renderer.shadowMap.needsUpdate=true;
   else if(sun.shadow.map){sun.shadow.map.dispose();sun.shadow.map=null}
  }
- hemi.intensity=.62-dayAmt*.17;
+ hemi.intensity=.62-dayAmt*.30;
  sun.position.set(player.x+sunDir.x*180,sunDir.y*180+40,player.z+sunDir.z*180);
  sun.target.position.set(player.x,0,player.z);
  sunSprite.position.copy(sunDir).multiplyScalar(1300);
@@ -2639,6 +3153,7 @@ addEventListener('keydown',e=>{
  if(state==='title'&&(e.code==='Enter'||e.code==='Space')){startGame();return}
  if(e.code==='KeyF'&&state==='play')enterExit();
  if(e.code==='KeyE'&&state==='play'&&player.mode==='foot')openAsk();
+ if(e.code==='KeyQ'&&state==='play'&&player.mode==='foot')punch();
  if(e.code==='KeyC')camMode=1-camMode;
  if(e.code==='KeyM'){e.preventDefault();toggleMap()}
  if(e.code==='BracketRight')radioStep(1);
@@ -2700,7 +3215,12 @@ addEventListener('wheel',e=>{
  e.preventDefault();
  camDistWant=clamp(camDistWant+Math.sign(e.deltaY)*.6,3.4,13);
 },{passive:false});
-cvEl.addEventListener('mousedown',()=>{if(state==='play')wantLock()});
+cvEl.addEventListener('mousedown',e=>{
+ if(state!=='play')return;
+ /* the first click is what captures the pointer - only swing once it is */
+ if(!locked){wantLock();return}
+ if(e.button===0&&player.mode==='foot')punch();
+});
 
 /* how much room the shot needs, per mode */
 function camRig(){
@@ -2818,7 +3338,7 @@ let parkedMesh=null;
   else spots.push({x:along,z:roadC(i)+(Math.random()<.5?off:-off),h:Math.random()<.5?Math.PI/2:-Math.PI/2});
  }
  for(const sp of spots){
-  if(Math.random()<.45)continue;
+  if(Math.random()<.24)continue;
   if(Math.abs(sp.x)>CITY/2-6||Math.abs(sp.z)>CITY/2-6)continue;
   sp.kept=true;
   const col=pick(CARCOLS),V=pick(VEHICLES);
@@ -3158,9 +3678,9 @@ function updateWitness(dt){
 /* ================= /WITNESS SYSTEM ================= */
 
 addCar({x:roadC(4)-5,z:roadC(4)+16,h:0,color:'#e8b23c'});
-for(let i=0;i<10;i++)spawnTrafficCar();
+for(let i=0;i<18;i++)spawnTrafficCar();
 /* the crowd can be this big because most of it is one draw each */
-for(let i=0;i<26;i++)spawnPed();
+for(let i=0;i<44;i++)spawnPed();
 
 
 /* ================= VISUAL SYSTEMS ================= */
@@ -3309,10 +3829,12 @@ function updateFX(dt){
   if(groundMat.normalMap)groundMat.normalMap.offset.y=fxTime*.006;
  }
  if(roadMat){
-  /* dry asphalt is genuinely rough - it only goes glossy when it is wet */
-  roadMat.roughness=lerp(.93,.30,wet);
+  /* dry asphalt is genuinely rough - it only goes glossy when it is wet.
+     With a roughness MAP now present these become multipliers on it, so the
+     dry end sits at 1.0 and lets the map do the talking. */
+  roadMat.roughness=lerp(1,.34,wet);
   roadMat.metalness=lerp(.02,.30,wet);
-  roadMat.envMapIntensity=lerp(.25,1.7,wet)*(1+nightAmt01*.45);
+  roadMat.envMapIntensity=lerp(.22,1.7,wet)*(1+nightAmt01*.45);
   roadMat.color.setScalar(lerp(1,.66,wet));
   /* relief flattens out as the surface floods, rather than vanishing when dry */
   if(roadMat.normalMap){const n=lerp(.85,.35,wet);roadMat.normalScale.set(n,n)}
@@ -3391,17 +3913,24 @@ function updateFX(dt){
  }else for(const r of rips)r.m.visible=false;
 
  const night=nightAmt01;
- renderer.toneMappingExposure=lerp(.98,1.18,night)*lerp(1,.9,wet);
- bloomPass.strength=.34+night*.3+wet*.12;
- bloomPass.threshold=lerp(1.02,.88,night);
+ renderer.toneMappingExposure=lerp(1.06,1.18,night)*lerp(1,.9,wet);
+ bloomPass.strength=.26+night*.38+wet*.12;
+ /* a high threshold in daylight so only the sun and specular hits bloom -
+    a low one turns every pale wall into a glow and washes the city out */
+ bloomPass.threshold=lerp(1.15,.88,night);
  bloomPass.radius=.7;
  const gu=gradePass.uniforms;
  gu.time.value=fxTime;
- gu.grain.value=.026+night*.042;
- gu.sat.value=1.08+night*.1-wet*.08;
- gu.con.value=1.05+night*.06;
- gu.ca.value=.0011+night*.0013;
- gu.lift.value.set(.008*night,.012*night,.034*night);
+ gu.grain.value=.020+night*.044;
+ /* Daylight was graded like night with the lights on: same lift, same
+    saturation. The look this is after is warm light against cool shade, so
+    the day gets a cool lift in the shadows - which is what makes the sunlit
+    faces read as warm without touching them - and more saturation to carry
+    the pastel facades. */
+ gu.sat.value=1.20-night*.06-wet*.08;
+ gu.con.value=1.09+night*.03;
+ gu.ca.value=.0009+night*.0015;
+ gu.lift.value.set(.008*night,.012*night+.006*dayAmt01,.034*night+.020*dayAmt01);
  /* Fog from 200m flattened everything past a couple of blocks into haze.
     Clear daylight sees much further; rain still closes it right down. */
  scene.fog.near=lerp(lerp(150,320,dayAmt01),90,wet);
@@ -3581,7 +4110,9 @@ window.__vc={renderer,scene,camera,composer,info:()=>({fps:perfFps,calls:rendere
   parkedSpots,AABBs,collideStatic,makeCar,VEHICLES,radio,synth,AC:()=>AC,SYNTH_STATIONS,
   eng:()=>({engGain,engOsc,skidGain}),separate,killCar,removeCar,hero:()=>heroRig,poseHero,radioStep,radioTune,radioNext,updateRadio,
   sys:{updateTraffic,updatePeds,updateCops,updateMission,updateWitness,updateParked,updatePedLOD,
-       updateCarLOD,reapCars,updateHUD,updateFX,updateSky,updateAudio},
+       updateCarLOD,reapCars,updateHUD,updateFX,updateSky,updateAudio,
+       updateSmoke,updateCarFx},
+  fx2:{puff,carSmoke,hurt,smokes,explode,punch,resolvePunch,addCar},
   counts:()=>{
    let objs=0,meshes=0;scene.traverse(o=>{objs++;if(o.isMesh)meshes++});
    return {objs,meshes,sceneChildren:scene.children.length,
@@ -3679,9 +4210,9 @@ async function applyTexturePack(){
      What the surface actually needed was relief, so the tile's own luminance
      is turned into a tangent-space normal map instead. */
   if(roadMat&&asp&&asp.image){
-   roadMat.roughnessMap=null;
-   roadMat.normalMap=normalFromHeight(asp.image,2.4);
-   roadMat.normalScale.set(.85,.85);
+   roadMat.roughnessMap=roughFromLuma(asp.image,.78,1.0);
+   roadMat.normalMap=normalFromHeight(asp.image,3.1);
+   roadMat.normalScale.set(1.05,1.05);
    roadMat.needsUpdate=true;
   }
   /* The raised pavement slab is real geometry with UVs already scaled to tile
@@ -3690,7 +4221,10 @@ async function applyTexturePack(){
   if(kerbMat&&pav){
    pav.wrapS=pav.wrapT=THREE.RepeatWrapping;
    kerbMat.map=pav;kerbMat.color.setScalar(1);
-   if(pav.image){kerbMat.normalMap=normalFromHeight(pav.image,2.0);kerbMat.normalScale.set(.7,.7)}
+   if(pav.image){
+    kerbMat.normalMap=normalFromHeight(pav.image,2.4);kerbMat.normalScale.set(.85,.85);
+    kerbMat.roughnessMap=roughFromLuma(pav.image,.72,.98);
+   }
    kerbMat.needsUpdate=true;
   }
   const g=groundCtx,s=groundScale,W=groundW;
@@ -4191,6 +4725,12 @@ function poseHero(gait,phase,dt){
  set('kneeR',-Math.max(0,sw)*(.35+amp*.55));
  set('armL',-swing*(.55+amp*.35));
  set('armR', swing*(.55+amp*.35));
+ if(punchT>0){
+  const u=1-punchT/PUNCH_TIME;
+  const th=u<.38?(u/.38):1-((u-.38)/.62);
+  set(punchSide>0?'armR':'armL',-th*2.1);
+  set(punchSide>0?'elbowR':'elbowL',-(1-th)*1.1);
+ }
  /* lean into a sprint and bob with the stride */
  if(r.bones.spine&&r.rest.spine){
   r.bones.spine.quaternion.copy(r.rest.spine)
@@ -4464,6 +5004,7 @@ function updateCarLOD(){
    anything to the game. Wheels are matched to a body by proximity and get the
    same correction so they stay with their car. */
 const PACK_URL='models/generic_passenger_car_pack.glb';
+const bt_len=spec=>spec.l;
 /* Real dimensions in metres, plus a handling class per body style. Every axis
    is pinned even though the pack is modelled to scale, so one oversized model
    cannot quietly throw off collision. */
@@ -4503,21 +5044,40 @@ function toFloatGeo(geo){
  return g;
 }
 
-/* Which pack bodies are modelled facing backwards.
-   This is a hand-checked list, and it is deliberately NOT computed.
+/* Which way round is a pack body modelled?
 
-   A car turned 180 degrees has an identical bounding box, so geometry alone
-   cannot tell. Two automated attempts failed here: glass position and light
-   placement disagree across bodies for legitimate reasons (a pickup's cabin
-   really is forward of centre, a coupe's really is back), and sampling the
-   optics texture for "which end is redder" produced a confident but wrong
-   answer on four of the ten - the optics UV islands are not laid out
-   consistently enough across bodies to carry that signal.
+   The two previous attempts asked the wrong question. Both tried to decide
+   each body on its own evidence - glass position, then the colour of the
+   optics texture - and both produced confident wrong answers, because per
+   body the evidence genuinely conflicts: a pickup's cab really is forward of
+   centre and a coupe's really is back, so no single per-body rule survives
+   all ten. The hand list that replaced them had the same weakness in slower
+   form: it recorded one body as reversed, and reversing that one body is what
+   put it out of step with the other nine.
 
-   So it is a list. If a body drives with its controls reversed, add its key
-   here; if one drives correctly but is listed, remove it. One line, no
-   guessing. */
-const BACKWARDS_BODIES={Sport:true};
+   The question that does have a reliable answer is about the PACK, not the
+   body. These ten cars are one artist's asset, modelled on a common axis;
+   after each body's showroom yaw is removed they either all face the game's
+   +Z or all face -Z. So each body votes with the evidence it does have, and
+   the majority decides for everyone. A pickup bed and a symmetric coupe can
+   both vote wrong without changing the outcome, and - the part a per-body
+   rule could never give - every car ends up facing the SAME way, which is the
+   property that actually matters. */
+/* A car's front overhang is lower than its rear: bonnets slope away, boots
+   and tailgates stand up. Mean roof height across the outermost eighth at
+   each end, positive when the +Z end is the taller one - that is, when the
+   body is modelled backwards. */
+function facingVote(geo,len){
+ const p=geo.attributes.position, cut=len*.375;
+ let fs=0,fn=0,rs=0,rn=0;
+ for(let i=0;i<p.count;i++){
+  const z=p.getZ(i);
+  if(z>cut){fs+=p.getY(i);fn++}
+  else if(z<-cut){rs+=p.getY(i);rn++}
+ }
+ if(!fn||!rn)return 0;
+ return (fs/fn)-(rs/rn);
+}
 /* Flatten a node's meshes into one space, keyed by the role in the mesh name. */
 function bakeRoles(node,correction){
  const out={};
@@ -4602,18 +5162,6 @@ async function applyCarPack(){
    unrot.copy(turn);
   }
 
-  /* square on Z is not enough - it could be facing either way down that axis,
-     and a car built back-to-front drives with its controls reversed */
-  {
-   if(BACKWARDS_BODIES[key]){
-    const turn=new THREE.Matrix4().makeRotationY(Math.PI).multiply(unrot);
-    roles=bakeRoles(b.node,turn);
-    all=spanOf(roles);
-    size=all.getSize(new THREE.Vector3());
-    unrot.copy(turn);
-   }
-  }
-
   const ctr=all.getCenter(new THREE.Vector3());
   const kx=spec.w/Math.max(size.x,1e-6),ky=spec.h/Math.max(size.y,1e-6),kz=spec.l/Math.max(size.z,1e-6);
   const place=new THREE.Matrix4().makeScale(kx,ky,kz)
@@ -4655,11 +5203,27 @@ async function applyCarPack(){
    }
   }
   if(spots.length!==4||!wheelGeo)continue;
-  /* front pair first - stepCar steers wheels[0] and wheels[1] */
-  spots.sort((a,c)=>c.z-a.z);
-  built.push({name:key||b.node.name,spec,merged,spots,wheelGeo,wheelMat,wr});
+  built.push({name:key||b.node.name,spec,merged,spots,wheelGeo,wheelMat,wr,
+              vote:facingVote(merged.Body.geo,bt_len(spec))});
  }
  if(!built.length)return false;
+
+ /* The vote. Every body is turned together or none is, so whatever the pack's
+    convention turns out to be, the ten stay consistent with each other. */
+ let back=0;
+ for(const bt of built)if(bt.vote>0)back++;
+ if(back*2>built.length){
+  const turn=new THREE.Matrix4().makeRotationY(Math.PI);
+  for(const bt of built){
+   for(const role in bt.merged){
+    bt.merged[role].geo.applyMatrix4(turn);
+    bt.merged[role].geo.computeVertexNormals();
+   }
+   for(const sp of bt.spots){sp.x=-sp.x;sp.z=-sp.z}
+  }
+ }
+ /* front pair first - stepCar steers wheels[0] and wheels[1] */
+ for(const bt of built)bt.spots.sort((a,c)=>c.z-a.z);
 
  VEHICLES.length=0;
  for(const bt of built){
@@ -4913,13 +5477,15 @@ function tick(now){
   f.s.material.opacity=Math.max(0,1-f.t/.5);
   if(f.t>.5){scene.remove(f.s);if(fxPool.length<12)fxPool.push(f.s);fx.splice(i,1)}
  }
+ updateSmoke(dt);
+ if(state==='play')updateCarFx(dt);
  if(state==='play'){
   if(player.mode==='drive'){
    const c=player.car;
    const thr=(keys.KeyW?1:0)-(keys.KeyS?1:0);
    const steer=(keys.KeyA?1:0)-(keys.KeyD?1:0);
    stepCar(c,thr,steer,!!keys.Space,dt);
-   const e=carExtents(c);const imp=collideStatic(c,e[0],e[1]);
+   const e=carExtents(c);const imp=collideStatic(c,e[0],e[1],carOBB(c));
    if(imp>4){c.hp-=imp*2;sfxCrash(imp);camShake=Math.min(.5,imp*.03)}
    if(c.hp<=0&&!c.dead)killCar(c);
    if(!c.dead)syncCar(c);

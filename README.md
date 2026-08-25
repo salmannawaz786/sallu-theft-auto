@@ -59,10 +59,29 @@ past 130 m they are dropped entirely. The result: **26 pedestrians cost 10
 draw calls**, where 12 pedestrians previously cost 72. Vehicles, parked cars
 and shadows all get the same treatment.
 
-**Collision uses a real footprint.** A single bounding circle per car meant two
-saloons "collided" with three metres of daylight between them. Each vehicle now
-reports how far its own body reaches along the line joining it to the other, so
-a door scrape and a nose-to-tail shunt both land at the right moment.
+**Collision uses a real footprint.** A bounding circle per car meant two
+saloons "collided" with three metres of daylight between them. Reporting how
+far each body reaches along the line joining the two centres fixed the obvious
+case and left a subtler one: that measurement is a *support radius* - the width
+of the car's shadow on that line, not the distance to its panels - so it is
+only tight when two boxes meet face to face. Approached diagonally it still
+claimed contact through a metre of clear air, and the same axis-aligned bound
+wrapped around a rotated car padded every kerb, bin and parked car by up to
+2.4m at forty-five degrees. Contact is now separating-axis: four axes for two
+boxes, exact, with the shallowest overlap as the push-out direction. Measured
+worst-case phantom contact went from 1.19m to 0.24m on foot, and from 2.36m to
+zero for a car passing a litter bin.
+
+**Which way round is a car modelled?** Two automated attempts at this failed,
+because both asked each body to decide on its own evidence, and per body the
+evidence genuinely conflicts - a pickup's cab really is forward of centre and a
+coupe's really is back. The hand list that replaced them had the same weakness
+in slower form: it recorded one body as reversed, and reversing that one body
+is what put it out of step with the other nine, which is what "the Ferrari
+drives backwards" was. The question with a reliable answer is about the *pack*,
+not the body: ten cars from one artist share an axis, so each body votes with
+the evidence it has and the majority turns all ten together. A pickup bed and a
+symmetric coupe can both vote wrong without changing the result.
 
 **The frame-rate meter was lying.** The physics timestep is clamped so a stall
 cannot tunnel a car through a wall. Feeding that clamped number to the FPS
@@ -97,6 +116,7 @@ alongside them.
 |---|---|
 | `W A S D` | drive / walk |
 | `Mouse` | look |
+| `Click` / `Q` | throw a punch (on foot) |
 | `F` | enter / exit vehicle |
 | `Shift` | sprint |
 | `Space` | handbrake |
