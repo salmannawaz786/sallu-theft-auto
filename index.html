@@ -1600,8 +1600,11 @@ function updateFoot(dt){
  /* The phase used to advance by 3.5*dt regardless of speed, so a stationary
     character kept marching on the spot. It only turns over while there is
     actually some ground speed. */
+ /* Only ever advance. An earlier version eased the phase BACK toward the
+    nearest half-cycle when you stopped, which ran the stride in reverse for a
+    few frames every time you let go of the key - it read as moonwalking. The
+    amplitude fade below is what settles him; the phase simply freezes. */
  if(gait>.12)player.walkPhase+=dt*(3.0+gait*1.7);
- else player.walkPhase=lerp(player.walkPhase,Math.round(player.walkPhase/Math.PI)*Math.PI,Math.min(1,8*dt));
 
  const lim=GS/2-4;
  player.x=clamp(player.x,-lim,lim);player.z=clamp(player.z,-lim,lim);
@@ -2505,8 +2508,8 @@ function updateAudio(){
    reflections - so the city opens after dark, where the art direction lives.
    T still cycles through to daylight. */
 let dayT=.66,nightLock=true;
-const cTopD=new THREE.Color(0x7fb4d8),cTopN=new THREE.Color(0x0a0f1e),
-cHorD=new THREE.Color(0xcfe3ea),cHorN=new THREE.Color(0x141a2a),cDusk=new THREE.Color(0xff9a5c),
+const cTopD=new THREE.Color(0x5d9ad2),cTopN=new THREE.Color(0x0a0f1e),
+cHorD=new THREE.Color(0xc3dcea),cHorN=new THREE.Color(0x141a2a),cDusk=new THREE.Color(0xff9a5c),
 sunDay=new THREE.Color(0xffe6c0),sunNight=new THREE.Color(0x8fa8ff);
 const sunDir=new THREE.Vector3();
 function updateSky(dt){
@@ -2534,9 +2537,15 @@ function updateSky(dt){
  scene.fog.color.copy(skyU.hor.value);
  sun.color.copy(sunNight).lerp(sunDay,dayAmt);
  /* a cool key from above at night - without it the city is unlit geometry */
- hemi.color.copy(cHorN).lerp(new THREE.Color(0x8fb6d8),dayAmt);
- hemi.groundColor.set(nightAmt>.5?0x2a2320:0x57504a);
- sun.intensity=.34+dayAmt*1.15;
+ hemi.color.copy(cHorN).lerp(new THREE.Color(0x7ea8d6),dayAmt);
+ /* bounce off the road is warm and dim, not neutral grey */
+ hemi.groundColor.set(nightAmt>.5?0x2a2320:0x6b5f4f);
+ /* Daylight was lit almost flat: a 1.49 key against a 0.90 hemisphere fill is
+    nearly 1:1, which erases shadow contrast and with it every bit of form -
+    the reason midday read as washed-out and fake while night looked good.
+    Real sun-to-sky is far wider. The key goes up, the fill comes down, and
+    shadows become readable without going pitch black. */
+ sun.intensity=.30+dayAmt*2.15;
  /* Below the horizon the sun casts nothing meaningful, but three.js was still
     re-rendering the whole city into a 2048px shadow map every frame for it.
     Dropping the pass after dark removes an entire scene traversal from the
@@ -2547,7 +2556,7 @@ function updateSky(dt){
   if(wantShadow)renderer.shadowMap.needsUpdate=true;
   else if(sun.shadow.map){sun.shadow.map.dispose();sun.shadow.map=null}
  }
- hemi.intensity=.62+dayAmt*.28;
+ hemi.intensity=.62-dayAmt*.17;
  sun.position.set(player.x+sunDir.x*180,sunDir.y*180+40,player.z+sunDir.z*180);
  sun.target.position.set(player.x,0,player.z);
  sunSprite.position.copy(sunDir).multiplyScalar(1300);
@@ -3382,7 +3391,7 @@ function updateFX(dt){
  }else for(const r of rips)r.m.visible=false;
 
  const night=nightAmt01;
- renderer.toneMappingExposure=lerp(.92,1.18,night)*lerp(1,.9,wet);
+ renderer.toneMappingExposure=lerp(.98,1.18,night)*lerp(1,.9,wet);
  bloomPass.strength=.34+night*.3+wet*.12;
  bloomPass.threshold=lerp(1.02,.88,night);
  bloomPass.radius=.7;
@@ -3393,8 +3402,10 @@ function updateFX(dt){
  gu.con.value=1.05+night*.06;
  gu.ca.value=.0011+night*.0013;
  gu.lift.value.set(.008*night,.012*night,.034*night);
- scene.fog.near=lerp(200,90,wet);
- scene.fog.far=lerp(720,430,wet);
+ /* Fog from 200m flattened everything past a couple of blocks into haze.
+    Clear daylight sees much further; rain still closes it right down. */
+ scene.fog.near=lerp(lerp(150,320,dayAmt01),90,wet);
+ scene.fog.far=lerp(lerp(760,1150,dayAmt01),430,wet);
 }
 /* ---- perf overlay (F3) ---- */
 const perfEl=$('perf');
@@ -4492,40 +4503,21 @@ function toFloatGeo(geo){
  return g;
 }
 
-/* Which end of a car is the back?
-   Bounding boxes cannot answer this - a car turned 180 degrees measures
-   exactly the same - and the obvious geometric hints all disagree across this
-   pack (I checked: glass offset and light placement point different ways on
-   different bodies). What never lies is that TAIL LIGHTS ARE RED. So sample
-   the optics texture at the UVs of the vertices at each end and see which end
-   is redder. That end is the back. */
-function opticsRearIsPositiveZ(geo,mat){
- if(!geo||!mat||!mat.map||!mat.map.image)return null;
- const uv=geo.attributes.uv,pos=geo.attributes.position;
- if(!uv)return null;
- let cv;
- try{
-  const N=128;
-  cv=document.createElement('canvas');cv.width=cv.height=N;
-  const g=cv.getContext('2d',{willReadFrequently:true});
-  g.drawImage(mat.map.image,0,0,N,N);
-  const px=g.getImageData(0,0,N,N).data;
-  geo.computeBoundingBox();
-  const cz=(geo.boundingBox.min.z+geo.boundingBox.max.z)/2;
-  let fSum=0,fN=0,bSum=0,bN=0;
-  for(let i=0;i<pos.count;i++){
-   const u=uv.getX(i),v=uv.getY(i);
-   const x=Math.max(0,Math.min(N-1,Math.floor(u*N)));
-   const y=Math.max(0,Math.min(N-1,Math.floor((1-v)*N)));
-   const o=(y*N+x)*4;
-   const red=px[o]-(px[o+1]+px[o+2])*.5;   /* how red, ignoring brightness */
-   if(pos.getZ(i)>cz){fSum+=red;fN++}else{bSum+=red;bN++}
-  }
-  if(!fN||!bN)return null;
-  return (fSum/fN)-(bSum/bN);              /* >0 means +Z end is the red end */
- }catch(e){return null}
-}
+/* Which pack bodies are modelled facing backwards.
+   This is a hand-checked list, and it is deliberately NOT computed.
 
+   A car turned 180 degrees has an identical bounding box, so geometry alone
+   cannot tell. Two automated attempts failed here: glass position and light
+   placement disagree across bodies for legitimate reasons (a pickup's cabin
+   really is forward of centre, a coupe's really is back), and sampling the
+   optics texture for "which end is redder" produced a confident but wrong
+   answer on four of the ten - the optics UV islands are not laid out
+   consistently enough across bodies to carry that signal.
+
+   So it is a list. If a body drives with its controls reversed, add its key
+   here; if one drives correctly but is listed, remove it. One line, no
+   guessing. */
+const BACKWARDS_BODIES={Sport:true};
 /* Flatten a node's meshes into one space, keyed by the role in the mesh name. */
 function bakeRoles(node,correction){
  const out={};
@@ -4613,17 +4605,12 @@ async function applyCarPack(){
   /* square on Z is not enough - it could be facing either way down that axis,
      and a car built back-to-front drives with its controls reversed */
   {
-   const optList=roles.Optics;
-   if(optList&&optList.length){
-    const probe=optList.length===1?optList[0].geo:mergeG(optList.map(r=>r.geo));
-    const redBias=opticsRearIsPositiveZ(probe,optList[0].mat);
-    if(redBias!==null&&redBias>1.5){
-     const turn=new THREE.Matrix4().makeRotationY(Math.PI).multiply(unrot);
-     roles=bakeRoles(b.node,turn);
-     all=spanOf(roles);
-     size=all.getSize(new THREE.Vector3());
-     unrot.copy(turn);
-    }
+   if(BACKWARDS_BODIES[key]){
+    const turn=new THREE.Matrix4().makeRotationY(Math.PI).multiply(unrot);
+    roles=bakeRoles(b.node,turn);
+    all=spanOf(roles);
+    size=all.getSize(new THREE.Vector3());
+    unrot.copy(turn);
    }
   }
 
