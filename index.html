@@ -553,6 +553,47 @@ let markMat=null;
    quad(cx+o,cz-H-3.0,cx+o+1.1,cz-H-.55,WHI);
   }
  }
+ /* Lane arrows on the approach to every junction. More than anything else in
+    the marking plan, these are what tell your eye it is looking at a real
+    road rather than a grey strip with lines on it. Built from the same quad
+    helper - a shaft plus a stepped head - so they stay in the one mesh. */
+ const arrow=(cx,cz,dir,axis)=>{
+  const L=1.5, W=.16;
+  if(axis==='z'){
+   quad(cx-W,cz-dir*L,cx+W,cz+dir*L*.2,WHI);            /* shaft */
+   for(let k=0;k<7;k++){                                  /* tapered head */
+    const t=k/7, w=.52*(1-t), z0=cz+dir*(L*.2+t*L*.62);
+    quad(cx-w,z0,cx+w,z0+dir*(L*.62/7)*1.05,WHI);
+   }
+  }else{
+   quad(cx-dir*L,cz-W,cx+dir*L*.2,cz+W,WHI);
+   for(let k=0;k<7;k++){
+    const t=k/7, w=.52*(1-t), x0=cx+dir*(L*.2+t*L*.62);
+    quad(x0,cz-w,x0+dir*(L*.62/7)*1.05,cz+w,WHI);
+   }
+  }
+ };
+ for(let i=0;i<=BLOCKS;i++)for(let j2=0;j2<BLOCKS;j2++){
+  const a2=roadC(j2)+JUNC, b2=roadC(j2+1)-JUNC;
+  if(b2-a2<18)continue;
+  const c0=roadC(i);
+  /* one per lane, on the outbound side, set back from the junction mouth */
+  for(const [lane,dir] of [[-4.2,-1],[4.2,1]]){
+   arrow(c0+lane, dir>0?b2-4.5:a2+4.5, dir, 'z');
+   arrow(dir>0?b2-4.5:a2+4.5, c0-lane, dir, 'x');
+  }
+ }
+ /* A hard kerb line where the carriageway ends. Without it the asphalt and the
+    pavement meet in a soft smear and the street loses its edge. */
+ const KERB=[.55,.54,.51];
+ for(let i=0;i<=BLOCKS;i++){
+  const c0=roadC(i);
+  for(const sgn of [-1,1]){
+   const E=c0+sgn*(EDGE+1.15);
+   quad(-CITY/2,E-.07,CITY/2,E+.07,KERB);
+   quad(E-.07,-CITY/2,E+.07,CITY/2,KERB);
+  }
+ }
  /* Decals. A real carriageway is not a clean sheet: it has ironwork down the
     middle of the lane and darker rectangles where it has been dug up and made
     good. These ride in the same merged mesh as the paint, so they are free. */
@@ -1187,14 +1228,20 @@ function addCar(o){
 function removeCar(c){if(c.gone)return;c.gone=true;scene.remove(c.m)}
 /* despawned cars used to linger in cars[] forever, so the per-frame O(n^2)
    separation pass got slower the longer you played. Compact it, and cap wrecks. */
-const MAX_WRECKS=6;
+const MAX_WRECKS=10;
 function reapCars(){
  for(let i=cars.length-1;i>=0;i--)if(cars[i].gone)cars.splice(i,1);
  let wrecks=0;
  for(let i=cars.length-1;i>=0;i--){
   const c=cars[i];
   if(!c.dead||c===player.car)continue;
-  if(++wrecks>MAX_WRECKS){removeCar(c);cars.splice(i,1)}
+  wrecks++;
+  /* Only ever clear a wreck you are not looking at. Culling purely on count
+     meant destroying one more car could delete a burnt-out shell sitting in
+     plain sight a few metres away. */
+  if(wrecks>MAX_WRECKS&&Math.hypot(c.x-player.x,c.z-player.z)>120){
+   removeCar(c);cars.splice(i,1);
+  }
  }
 }
 function killCar(c){
@@ -1344,6 +1391,7 @@ function collideStatic(o,r){
  let imp=0;
  forEachAABB(o.x-r,o.z-r,o.x+r,o.z+r,(b)=>{
   {
+   if(b.off)return;
    if(o.x>b.x1-r&&o.x<b.x2+r&&o.z>b.z1-r&&o.z<b.z2+r){
    const px1=o.x-(b.x1-r),px2=(b.x2+r)-o.x,pz1=o.z-(b.z1-r),pz2=(b.z2+r)-o.z;
    const m=Math.min(px1,px2,pz1,pz2);
@@ -1518,14 +1566,35 @@ function updateFoot(dt){
   playerMesh.position.y=Math.abs(Math.sin(player.walkPhase))*amp*.055;
  }
 
+ /* Cars are solid to someone on foot. Previously the only test here was a
+    1.9m circle round the car's CENTRE that ran a knock-down - so a stationary
+    car had no collision at all and you strolled straight through it, while a
+    moving one could clip you from inside its own bodywork. Both now use the
+    real footprint. */
  for(const c of cars){
   if(c.gone)continue;
+  const dx=player.x-c.x, dz=player.z-c.z;
+  const d=Math.hypot(dx,dz);
+  if(d>7||d===0)continue;
+  const fx=Math.sin(c.h),fz=Math.cos(c.h);
+  const u=c.m&&c.m.userData;
+  const hw=((u&&u.wid)||1.9)*.5, hl=((u&&u.len)||4.6)*.5;
+  const nx=dx/d, nz=dz/d;
+  const reach=Math.abs(nx*fz-nz*fx)*hw+Math.abs(nx*fx+nz*fz)*hl;
+  const need=reach+.42;                       /* plus the walker's own girth */
+  if(d>need)continue;
   const sp=c.ai==='traffic'?c.spd:c.sp;
-  if(sp>7&&Math.hypot(c.x-player.x,c.z-player.z)<1.9){
+  if(sp>7&&!c.dead){
    player.hp-=sp*2.2;camShake=.3;sfxCrash(8);
-   player.x+=(player.x-c.x)*.8;player.z+=(player.z-c.z)*.8;
-   player.vx=(player.x-c.x)*3;player.vz=(player.z-c.z)*3;
+   player.x+=nx*1.4;player.z+=nz*1.4;
+   player.vx=nx*sp*.6;player.vz=nz*sp*.6;
    if(player.hp<=0){die(false);return}
+  }else{
+   /* slow or parked: just refuse to let them pass through the bodywork */
+   const push=need-d;
+   player.x+=nx*push;player.z+=nz*push;
+   const into=player.vx*nx+player.vz*nz;
+   if(into<0){player.vx-=nx*into;player.vz-=nz*into}
   }
  }
 }
@@ -2441,6 +2510,11 @@ function startGame(){
  titleEl.classList.add('gone');
  hudEl.classList.remove('hidden');
  state='play';
+ /* The title screen parks the camera 175m out on an orbit. Without a reset the
+    first thing you see is that shot easing in from far away; snap straight to
+    the over-the-shoulder framing instead. */
+ camYaw=player.h;camPitch=.14;camDist=camDistWant=6.4;mouseIdle=9;
+ updateCamera(1/60);
  wantLock();
  toast('Find the pink marker to start a courier job');
  if(radio.stations.length&&radio.si<0)radioTune(0);
@@ -2626,7 +2700,7 @@ function camClear(px,py,pz,cx,cy,cz){
  forEachAABB(lo_x,lo_z,hi_x,hi_z,(b)=>{
   /* parked cars and street props block driving but the camera rides well above
      them - without this the shot would flinch every time you passed one */
-  if(b.parked)return;
+  if(b.parked||b.off)return;
   if(b.x2<lo_x||b.x1>hi_x||b.z2<lo_z||b.z1>hi_z)return;
   /* slab test on the 2D segment */
   let t0=0,t1=1;
@@ -2684,7 +2758,8 @@ let parkedMesh=null;
   if(!sp.kept)continue;
   const alongZ=Math.abs(Math.sin(sp.h))<.5;   /* h of 0 or PI means it faces Z */
   const hw=alongZ?1.02:2.35, hd=alongZ?2.35:1.02;
-  AABBs.push({x1:sp.x-hw,z1:sp.z-hd,x2:sp.x+hw,z2:sp.z+hd,parked:true});
+  sp.box={x1:sp.x-hw,z1:sp.z-hd,x2:sp.x+hw,z2:sp.z+hd,parked:true};
+  AABBs.push(sp.box);
  }
  /* which spot got skipped/kept matters when we rebuild with real meshes */
  parkedSpots.used=parkedSpots.used||[];
@@ -4598,6 +4673,10 @@ function claimParked(i){
  const g=parkedReal.get(i);
  if(!g)return null;
  sp.taken=true;
+ /* Retire the collision box with the car. Leaving it behind put an invisible
+    wall in the middle of the road that you could crash into - complete with
+    the impact sound - long after the car itself had driven away. */
+ if(sp.box)sp.box.off=true;
  setParkedBoxShown(i,false);
  parkedShown.delete(i);
  scene.remove(g);
