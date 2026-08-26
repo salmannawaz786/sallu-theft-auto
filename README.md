@@ -5,7 +5,7 @@ no build step — one HTML file and a folder of assets.
 
 **[▶ Play it](https://sallu-theft-auto.pages.dev/)**
 
-![Sallu Theft Auto](docs/screenshot.jpg)
+![Sallu Theft Auto](8fa06b9e-e3f8-4c70-9cf7-3536000239f4.jfif)
 
 ---
 
