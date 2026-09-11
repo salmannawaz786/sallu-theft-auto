@@ -56,8 +56,11 @@ music/manifest.json
 Downloads/
 
 # generation scratch - Flux outputs, background-removed PNGs and the raw
-# TRELLIS car exports. meshes/car_trellis_*.glb are what the game loads;
-# these are the originals they were prepared from.
+# TRELLIS car exports, including cars/trellis_originals/. The game loads the
+# PREPARED copies, which are named for their body style - car_hatchback,
+# car_muscle, car_sport, car_suv, car_taxi. The raw car_trellis_N.glb uploads
+# they came from were sitting in meshes/ unreferenced, 25MB of a 46MB repo
+# that nothing ever requested.
 cars/
 
 # Sketchfab source models. The game loads the prepared copies in meshes/;
