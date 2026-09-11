@@ -45,3 +45,23 @@ music/*.m4a
 music/*.wav
 music/*.flac
 music/manifest.json
+
+# API keys. Never commit these - a key in git history is a leaked key even
+# after it is deleted, because the object stays reachable.
+.env
+.env.*
+!.env.example
+
+# scratch: reference images, PSDs and downloads that are not game assets
+Downloads/
+
+# generation scratch - Flux outputs, background-removed PNGs and the raw
+# TRELLIS car exports. meshes/car_trellis_*.glb are what the game loads;
+# these are the originals they were prepared from.
+cars/
+
+# Sketchfab source models. The game loads the prepared copies in meshes/;
+# shipping both doubles the download for no benefit. Rebuild with
+# `node pipeline/prep_sketchfab_cars.mjs`.
+2005_car_audi.glb
+2018_audi_e-tron_gt_concept.glb

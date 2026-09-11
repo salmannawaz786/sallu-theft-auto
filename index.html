@@ -213,10 +213,10 @@ const radioEl=$('radio'),rStationEl=$('rStation'),rTrackEl=$('rTrack');
    of HIGH, which no integrated GPU survives. It now buys sharper shadows and
    filtering instead, and only supersamples a little. */
 const TIERS=[
- {n:'LOW',   pr:.7,  shadow:0,    bloom:false, smaa:false, env:false, gnorm:0,   aniso:1,  parked:false},
- {n:'MED',   pr:.9,  shadow:1024, bloom:true,  smaa:false, env:true,  gnorm:.12, aniso:4,  parked:true},
- {n:'HIGH',  pr:1,   shadow:2048, bloom:true,  smaa:true,  env:true,  gnorm:.2,  aniso:8,  parked:true},
- {n:'ULTRA', pr:1.15,shadow:2048, bloom:true,  smaa:true,  env:true,  gnorm:.3,  aniso:16, parked:true}
+ {n:'LOW',   pr:.7,  shadow:0,    bloom:false, smaa:false, env:false, gnorm:0,   aniso:1,  parked:false, fnorm:false, ao:false},
+ {n:'MED',   pr:.9,  shadow:1024, bloom:true,  smaa:false, env:true,  gnorm:.12, aniso:4,  parked:true,  fnorm:true,  ao:false},
+ {n:'HIGH',  pr:1,   shadow:2048, bloom:true,  smaa:true,  env:true,  gnorm:.2,  aniso:8,  parked:true,  fnorm:true,  ao:true},
+ {n:'ULTRA', pr:1.15,shadow:2048, bloom:true,  smaa:true,  env:true,  gnorm:.3,  aniso:16, parked:true,  fnorm:true,  ao:true}
 ];
 /* integrated graphics get the cheap tier from the first frame, not after a stutter */
 function guessTier(){
@@ -248,11 +248,12 @@ camera.position.set(0,90,220);
 addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);if(composer)composer.setSize(innerWidth,innerHeight)});
 const sun=new THREE.DirectionalLight(0xffffff,2);
 sun.castShadow=true;sun.shadow.mapSize.set(TIERS[qual].shadow||1024,TIERS[qual].shadow||1024);
-/* a tighter shadow frustum means the same map resolution covers far fewer
-   metres, so shadows get sharper without costing anything */
-Object.assign(sun.shadow.camera,{left:-90,right:90,top:90,bottom:-90,near:1,far:420});
+/* Tighter frustum = same texel budget covers less area = sharper shadows.
+   65m from the player captures everything relevant at street level. */
+Object.assign(sun.shadow.camera,{left:-65,right:65,top:65,bottom:-65,near:2,far:380});
 sun.shadow.camera.updateProjectionMatrix();
-sun.shadow.bias=-0.0006;sun.shadow.normalBias=.6;
+sun.shadow.bias=-0.0003;sun.shadow.normalBias=0.5;
+sun.shadow.radius=qual>=2?2.5:1.2;
 scene.add(sun,sun.target);
 const hemi=new THREE.HemisphereLight(0x8fb6d8,0x57504a,.8);
 scene.add(hemi);
@@ -291,39 +292,41 @@ float fbm(vec2 p){
  float v=0.,a=.5,n=0.;
  for(int i=0;i<5;i++){v+=a*vnoise(p);n+=a;p=p*2.03+vec2(17.3,9.1);a*=.5;}
  return v/n;                                  /* normalised, so 0..1 means it */
-}
-void main(){
+}void main(){
  vec3 d=normalize(vD);
  float h=clamp(d.y,0.,1.);
- vec3 c=mix(hor,top,pow(h,.55));
+ /* Rayleigh-style gradient: richer blue at zenith, warm haze at horizon */
+ vec3 c=mix(hor,top,pow(h,.42));
+ /* Add a touch of deep blue at the very top for atmosphere depth */
+ c=mix(c,top*1.18,pow(h,2.5)*.45);
  vec3 sd=normalize(sunDir);
- /* broad forward scatter, plus a tight disc so the sun is a THING */
- float g=pow(max(dot(d,sd),0.),8.);
- c+=sunCol*g*sunAmt*(.35+.65*(1.-h));
- float disc=smoothstep(.9975,.9993,dot(d,sd));
- c+=sunCol*disc*sunAmt*2.2;
+ float cosA=max(dot(d,sd),0.);
+ /* Broad atmospheric glow around the sun — Mie scattering */
+ float mie=pow(cosA,5.)*.65+pow(cosA,22.)*.35;
+ c+=sunCol*mie*sunAmt*(1.1-.5*h);
+ /* Tight solar disc */
+ float disc=smoothstep(.9972,.9991,dot(d,sd));
+ c+=sunCol*disc*sunAmt*3.0;
+ /* Golden horizon band near sun at dusk */
+ float horiz=pow(clamp(1.-h*6.,0.,1.),2.2);
+ c+=sunCol*horiz*sunAmt*.28;
  if(cloud>.002&&d.y>.005){
-  /* Project onto a deck overhead; the divide is what gives it perspective.
-     The frequency has to put several noise cells across the field of view or
-     the whole sky samples one value of the fbm and reads as flat haze. */
-  vec2 uv=d.xz/(d.y+.10)*.9+vec2(time*.0045,time*.0021);
-  float n=fbm(uv*5.0);
-  n=n*.70+fbm(uv*13.0)*.30;
-  /* coverage, softened right down at the horizon so the deck meets the haze */
-  float cov=smoothstep(.42,.60,n)*cloud;
-  cov*=smoothstep(.0,.16,d.y);
-  /* a second, higher-threshold sample stands in for depth inside the cloud */
-  float core=smoothstep(.52,.74,n);
-  vec3 cc=mix(cloudDark,cloudCol,core);
-  /* silver lining on whichever side the sun is */
-  float rim=pow(max(dot(d,sd),0.),3.)*(1.-core);
-  cc+=sunCol*rim*.55*sunAmt;
-  c=mix(c,cc,cov*.92);
+ vec2 uv=d.xz/(d.y+.10)*.9+vec2(time*.0045,time*.0021);
+ float n=fbm(uv*5.0);
+ n=n*.70+fbm(uv*13.0)*.30;
+ float cov=smoothstep(.40,.58,n)*cloud;
+ cov*=smoothstep(.0,.14,d.y);
+ float core=smoothstep(.50,.72,n);
+ vec3 cc=mix(cloudDark,cloudCol,core);
+ /* Silver rim lit by sun on the bright side */
+ float rim=pow(max(dot(d,sd),0.),4.)*(1.-core)*.9;
+ cc+=sunCol*rim*.65*sunAmt;
+ /* Darker base of clouds for volumetric feel */
+ cc-=vec3(.04,.04,.06)*(1.-core)*.5;
+ c=mix(c,cc,cov*.88);
  }
- /* This material is a raw ShaderMaterial, so it never goes through the
-    renderer's tone mapping the way every lit surface does. It has to carry
-    its own daylight gain or the sky sits darker than the street below it. */
- c=pow(c,vec3(2.2))*(1.15+sunAmt*.55);
+ /* Tone mapping — raw ShaderMaterial bypasses renderer tonemapping */
+ c=pow(max(c,vec3(0.)),vec3(2.2))*(1.12+sunAmt*.60);
  gl_FragColor=vec4(c,1.);
 }`}));
 scene.add(sky);
@@ -367,6 +370,14 @@ const wreckMat=new THREE.MeshStandardMaterial({color:0x1c1a18,roughness:.94,meta
 /* ---- wet-weather + lighting globals ---- */
 let groundMat=null,groundNormalTex=null,groundCanvas=null,groundCtx=null,groundTex=null,groundScale=1,groundW=null,puddles=[],wet=0,wetTarget=0,rainOn=false,nightAmt01=0,dayAmt01=1;
 /* ---- ground texture ---- */
+/* ---- the jungle district ----
+   A fixed 2x2 corner of the grid rather than another random roll, because a
+   jungle that lands somewhere different every reload is scenery, not a place.
+   Far side of the map from downtown (which is the middle four blocks), so the
+   skyline still reads as a skyline from inside it. */
+const JUNGLE={i0:0,i1:1,j0:6,j1:7};
+const isJungle=(bi,bj)=>bi>=JUNGLE.i0&&bi<=JUNGLE.i1&&bj>=JUNGLE.j0&&bj<=JUNGLE.j1;
+
 const blockType=[];
 {
  const c=document.createElement('canvas');c.width=c.height=2048;const g=c.getContext('2d');
@@ -379,11 +390,21 @@ const blockType=[];
  g.fillStyle='#9b948b';g.fillRect(W(-CITY/2),W(-CITY/2),CITY*s,CITY*s);
  for(let bi=0;bi<BLOCKS;bi++){blockType[bi]=[];
   for(let bj=0;bj<BLOCKS;bj++){
-   const r=Math.random(),type=r<.1?'park':r<.16?'plaza':'lot';blockType[bi][bj]=type;
+   const r=Math.random();
+   const type=isJungle(bi,bj)?'jungle':(r<.1?'park':r<.16?'plaza':'lot');
+   blockType[bi][bj]=type;
    const x1=roadC(bi)+ROAD/2+3.2,z1=roadC(bj)+ROAD/2+3.2,w=BLOCK-6.4;
-   g.fillStyle=type==='park'?'#5d8752':type==='plaza'?'#a7a19a':'#78716d';
+   g.fillStyle=type==='jungle'?'#2c4526':type==='park'?'#5d8752':type==='plaza'?'#a7a19a':'#78716d';
    g.fillRect(W(x1),W(z1),w*s,w*s);
-   g.strokeStyle='#b8b1a8';g.lineWidth=2;g.strokeRect(W(x1),W(z1),w*s,w*s);
+   /* mottle the canopy floor so it is not one flat green under the trees */
+   if(type==='jungle'){
+    for(let k=0;k<220;k++){
+     g.fillStyle=Math.random()<.5?'rgba(18,38,16,.30)':'rgba(96,124,62,.18)';
+     const rr=rand(2,9)*s;
+     g.beginPath();g.arc(W(x1+rand(w)),W(z1+rand(w)),rr,0,6.283);g.fill();
+    }
+   }
+   g.strokeStyle=type==='jungle'?'#3f5c33':'#b8b1a8';g.lineWidth=2;g.strokeRect(W(x1),W(z1),w*s,w*s);
    if(type==='park'){g.fillStyle='#b7a98c';const m=w/2;g.fillRect(W(x1+m-1.2),W(z1),2.4*s,w*s);g.fillRect(W(x1),W(z1+m-1.2),w*s,2.4*s)}
   }}
  g.fillStyle='#3b3b40';
@@ -499,6 +520,107 @@ function roughFromLuma(img,lo,hi){
  return t;
 }
 
+/* Build a lit-window mask out of a facade albedo.
+
+   The six newest walls were generated for daylight and have no hand-made _e
+   map, so at night they would have been dark slabs while every older building
+   glowed. The windows are already identifiable without one: on every facade in
+   this set they are the dark parts, which is the same signal the normal and
+   roughness maps key off.
+
+   Working in cells rather than per pixel matters. A per-pixel threshold lights
+   the dark half of the texture as a spatter; a cell that is mostly dark is a
+   window, and lighting whole cells is what reads as somebody's flat with the
+   light on. */
+function emissiveFromAlbedo(img,cols,rows,litChance){
+ const N=Math.min(img.width||256,256), M=Math.min(img.height||256,256);
+ const src=document.createElement('canvas');src.width=N;src.height=M;
+ const sg=src.getContext('2d',{willReadFrequently:true});
+ sg.drawImage(img,0,0,N,M);
+ const d=sg.getImageData(0,0,N,M).data;
+ const lum=new Float32Array(N*M);
+ let mean=0;
+ for(let i=0;i<N*M;i++){
+  const l=(d[i*4]*.299+d[i*4+1]*.587+d[i*4+2]*.114)/255;
+  lum[i]=l;mean+=l;
+ }
+ mean/=N*M;
+ const cut=mean*.72;
+
+ const cw=N/cols, ch=M/rows;
+ /* Which cells are glass. On a masonry wall this is a minority; on a mirrored
+    curtain wall it is nearly all of them, because the whole surface is dark. */
+ const cell=[];
+ for(let r=0;r<rows;r++)for(let c=0;c<cols;c++){
+  const x0=Math.floor(c*cw),x1=Math.floor((c+1)*cw);
+  const y0=Math.floor(r*ch),y1=Math.floor((r+1)*ch);
+  let dark=0,n=0;
+  for(let y=y0;y<y1;y++)for(let x=x0;x<x1;x++){if(lum[y*N+x]<cut)dark++;n++}
+  if(n&&dark/n>=.45)cell.push([x0,y0,x1,y1]);
+ }
+ /* Light a fixed share of the WALL, not a share of whatever qualified. Using
+    the qualifying set directly lit 42% of a glass tower - every panel is glass,
+    so every panel passed - and the building read as a lantern. */
+ const total=cols*rows;
+ const eff=cell.length?Math.min(1,(litChance*total*.55)/cell.length):0;
+
+ const out=document.createElement('canvas');out.width=N;out.height=M;
+ const og=out.getContext('2d');
+ og.fillStyle='#000';og.fillRect(0,0,N,M);
+ const warm=['#ffb45e','#ffd9a0','#ffc37a','#ffcf8a'];
+ for(const [x0,y0,x1,y1] of cell){
+  if(Math.random()>eff)continue;              /* nobody home */
+  og.fillStyle=Math.random()<.82?pick(warm):'#bcd8e8';
+  og.fillRect(x0,y0,x1-x0,y1-y0);
+ }
+ const t=new THREE.CanvasTexture(out);
+ t.colorSpace=THREE.SRGBColorSpace;
+ t.wrapS=THREE.MirroredRepeatWrapping;t.wrapT=THREE.RepeatWrapping;
+ return t;
+}
+
+/* ---- derived surface relief for buildings ----
+   Every building and shopfront in the city was flat diffuse plus an emissive
+   window mask: no normal map, no roughness map. A wall lit by one sun with no
+   relief returns the same value across its whole face, which is why the blocks
+   read as printed cardboard however good the texture underneath was.
+
+   Luminance doubles as a height field here because of what these tiles
+   actually depict - window openings are the dark parts and they really are
+   recessed, mortar lines are dark and really are cut in. The same luminance is
+   also a usable gloss mask, because the dark parts are glass and the light
+   parts are masonry. One image, two maps, no new assets.
+
+   Generation is deferred rather than done at load. Quality is auto-adjusted
+   from the measured frame rate, so a machine that starts on LOW - which every
+   machine does for the first half second - would have skipped the maps
+   permanently and never picked them up when the tier rose. */
+const reliefJobs=[];
+function queueRelief(mat,img,nStr,nScale,rLo,rHi,env){
+ reliefJobs.push({mat,img,nStr,nScale,rLo,rHi,env,
+                  rough0:mat.roughness,env0:mat.envMapIntensity,made:false});
+}
+function applyRelief(on){
+ for(const j of reliefJobs){
+  const m=j.mat;
+  if(on){
+   if(!j.made){
+    j.normalTex=normalFromHeight(j.img,j.nStr);
+    j.roughTex=roughFromLuma(j.img,j.rLo,j.rHi);
+    j.made=true;
+   }
+   m.normalMap=j.normalTex;m.normalScale.set(j.nScale,j.nScale);
+   m.roughnessMap=j.roughTex;
+   m.roughness=1;                /* the map is the whole story now */
+   m.envMapIntensity=j.env;      /* windows need something to reflect */
+  }else{
+   m.normalMap=null;m.roughnessMap=null;
+   m.roughness=j.rough0;m.envMapIntensity=j.env0;
+  }
+  m.needsUpdate=true;
+ }
+}
+
 /* Turn a texture's luminance into a tangent-space normal map. The generated
    tiles carry plenty of fine detail (measured: more than the pavement tile),
    but with no relief it all reads as a flat print. Wrapped sampling keeps it
@@ -542,72 +664,158 @@ function normalFromHeight(img,strength){
 /* Metres of road per texture tile. At 9 the aggregate was averaging out to a
    flat grey by the time it reached the bumper; 6.5 puts enough chip in front
    of the camera to read as a surface you are driving ON. */
-const ROAD_TILE=6.5;
+const ROAD_TILE=3.8;
 let roadMat=null,roadMesh=null;
 {
  const pos=[],uv=[],nrm=[],col=[];
- /* How worn is the tarmac at this point?
-    Tyres polish two dark ribbons into each lane, grit and oil collect against
-    the kerb, and the crown down the middle stays paler because nothing drives
-    on it. This was painted into the ground canvas last round, where the
-    carriageway mesh then covered it up completely - so it goes into the road's
-    own vertices instead, where it is actually visible. Costs nothing: no extra
-    draw, no extra texture, just a colour attribute. */
+ const CROWN=.05;  /* reduced crown so slope normals stay nearly-vertical */
+ const H=ROAD/2;
+
+ /* Tire-track wear: tyre lines are polished darker, gutter edges collect
+    oil and rubber deposits. All values are DARK (0-1 multiplier on
+    asphalt grey) — never allow warm/sandy brightening */
  const wearAt=(x,z)=>{
-  let w=1;
+  let w=0.78; /* start dark — raw asphalt is a dark charcoal grey */
   for(let i=0;i<=BLOCKS;i++){
    const r=roadC(i);
    for(const [c,d] of [[x,z],[z,x]]){
     const off=d-r;
-    if(Math.abs(off)>ROAD/2+1)continue;
-    /* wheel tracks */
-    for(const t of [-5.4,-2.2,2.2,5.4])
-     w*=1-.30*Math.exp(-Math.pow((off-t)/1.15,2));
-    /* untouched crown */
-    w*=1+.10*Math.exp(-Math.pow(off/1.5,2));
-    /* gutter grime */
-    for(const t of [-7.4,7.0])
-     w*=1-.34*Math.exp(-Math.pow((off-t)/1.0,2));
+    if(Math.abs(off)>H+1)continue;
+    /* polished tyre tracks are slightly lighter (reflective rubber shine) */
+    for(const t of [-5.5,-2.2,2.2,5.5])
+     w+=.06*Math.exp(-Math.pow((off-t)/1.1,2));
+    /* aggregate crown — pale exposed chip */
+    w+=.04*Math.exp(-Math.pow(off/1.4,2));
+    /* gutter grime — very dark */
+    for(const t of [-7.5,7.5])
+     w-=.12*Math.exp(-Math.pow((off-t)/.85,2));
    }
   }
-  /* slow blotchiness so the surface is never one flat tone */
-  w*=1+.055*Math.sin(x*.21)*Math.cos(z*.17)+.04*Math.sin(x*.07+z*.11);
-  return Math.max(.35,Math.min(1.25,w));
+  /* micro-variation so it never reads as flat painted plastic */
+  w*=1+.03*Math.sin(x*.42)*Math.cos(z*.35)+.02*Math.sin(x*.11+z*.22);
+  return Math.max(.55,Math.min(.96,w));
  };
- const strip=(x1,z1,x2,z2)=>{
-  const y=.012;
-  const P=[[x1,z1],[x2,z1],[x2,z2],[x1,z1],[x2,z2],[x1,z2]];
-  for(const [x,z] of P){
-   pos.push(x,y,z);nrm.push(0,1,0);uv.push(x/ROAD_TILE,z/ROAD_TILE);
-   const w=wearAt(x,z);col.push(w,w,w*1.02);
+
+ /* Subdivided road strip builder: divides every road segment into a high-density
+    grid (3.5m length steps, 6 width slices) so the camber, vertex tire tracks,
+    and lighting normals smoothly curve across all 4 lanes */
+ const addRoadSegment=(x1,z1,x2,z2,isXDir)=>{
+  const yBase=.012;
+  const segsL=Math.max(1,Math.round((isXDir?Math.abs(x2-x1):Math.abs(z2-z1))/3.5));
+  const segsW=6; /* 6 slices across the 16m road */
+
+  for(let i=0;i<segsL;i++){
+   const u0=i/segsL, u1=(i+1)/segsL;
+   const p0=isXDir?(x1+(x2-x1)*u0):(z1+(z2-z1)*u0);
+   const p1=isXDir?(x1+(x2-x1)*u1):(z1+(z2-z1)*u1);
+
+   for(let j=0;j<segsW;j++){
+    const v0=j/segsW, v1=(j+1)/segsW;
+    const t0=-1+v0*2, t1=-1+v1*2;
+    const w0=isXDir?(z1+H+t0*H):(x1+H+t0*H);
+    const w1=isXDir?(z1+H+t1*H):(x1+H+t1*H);
+
+    const quadPts=isXDir?[
+     [p0,w0,t0],[p1,w0,t0],[p1,w1,t1],
+     [p0,w0,t0],[p1,w1,t1],[p0,w1,t1]
+    ]:[
+     [w0,p0,t0],[w1,p0,t1],[w1,p1,t1],
+     [w0,p0,t0],[w1,p1,t1],[w0,p1,t0]
+    ];
+
+    for(const [qx,qz,qt] of quadPts){
+     const y=yBase+CROWN*(1-qt*qt);
+     /* Crown normal slope tilted outwards toward gutters */
+     const slope=-2*CROWN*qt/H;
+     const nx=isXDir?0:-slope;
+     const nz=isXDir?-slope:0;
+     const len=Math.hypot(nx,1,nz);
+
+     pos.push(qx,y,qz);
+     nrm.push(nx/len,1/len,nz/len);
+     uv.push(qx/ROAD_TILE,qz/ROAD_TILE);
+     const w=wearAt(qx,qz);
+     /* True cool-grey asphalt vertex colour — no warmth/sand tint */
+     col.push(w*.93,w*.94,w*.96);  /* slight blue-shift = cool city tarmac */
+    }
+   }
   }
  };
- const H=ROAD/2;
- /* every east-west carriageway runs the full width, junctions included */
- for(let i=0;i<=BLOCKS;i++)strip(-CITY/2,roadC(i)-H,CITY/2,roadC(i)+H);
- /* north-south ones fill only the gaps between them, so nothing overlaps and
-    nothing z-fights at a junction */
- for(let i=0;i<=BLOCKS;i++)for(let j=0;j<BLOCKS;j++)
-  strip(roadC(i)-H,roadC(j)+H,roadC(i)+H,roadC(j+1)-H);
+
+ /* East-west carriageways */
+ for(let i=0;i<=BLOCKS;i++){
+  const cz=roadC(i);
+  addRoadSegment(-CITY/2,cz-H,CITY/2,cz+H,true);
+ }
+ /* North-south carriageways between junctions */
+ for(let i=0;i<=BLOCKS;i++)for(let j=0;j<BLOCKS;j++){
+  const cx=roadC(i);
+  const z1=roadC(j)+H, z2=roadC(j+1)-H;
+  if(z2>z1)addRoadSegment(cx-H,z1,cx+H,z2,false);
+ }
 
  const g=new THREE.BufferGeometry();
  g.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));
  g.setAttribute('normal',new THREE.Float32BufferAttribute(nrm,3));
  g.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));
  g.setAttribute('color',new THREE.Float32BufferAttribute(col,3));
- /* Three coplanar-ish layers stack here: ground plane, carriageway, paint.
-    Separating them by millimetres alone z-fights past ~160m, because depth
-    precision falls off with the square of distance. Polygon offset biases them
-    in depth-buffer space instead, which holds at every range. */
- /* Uniform roughness is what makes a surface read as plastic: every point
-    catches the light identically, so the eye sees moulded polymer instead of
-    aggregate. Real asphalt varies - polished wheel tracks are slicker than the
-    coarse chip beside them. A roughness map built from the tile's own
-    luminance restores that variation, and the vertex wear above modulates the
-    albedo on top of it. */
- roadMat=new THREE.MeshStandardMaterial({color:0x54565b,roughness:1,metalness:.02,envMapIntensity:.20,
-                                         vertexColors:true,
-                                         polygonOffset:true,polygonOffsetFactor:-2,polygonOffsetUnits:-2});
+
+ /* Realistic GTA-style asphalt: dark charcoal, rough dielectric surface.
+    MeshPhysical lets us add a thin specular film (wet reflection) without
+    affecting the base diffuse colour the way metalness would. */
+ roadMat=new THREE.MeshStandardMaterial({
+  color:0x3d4148,  /* dark charcoal — real dry city tarmac base */
+  roughness:.97,metalness:0,envMapIntensity:.18,
+  vertexColors:true,
+  polygonOffset:true,polygonOffsetFactor:-2,polygonOffsetUnits:-2
+ });
+ /* The single biggest reason the carriageway read as plastic was not the
+    material response - roughness .97 on a dielectric is already right - but
+    repetition. One 3.8m tile stamped across 592 metres of city puts a regular
+    grid in front of the camera, and a regular grid is the one thing real
+    asphalt never has. No texture, however good, survives being repeated 150
+    times in shot.
+
+    So the tile is broken up in the shader at scales it cannot repeat at:
+    two octaves of value noise over world metres for the slow light/dark drift
+    of a road surfaced in different decades, a sparser band for patched repair
+    strips, and a fine roughness grit that only resolves near the bumper.
+    Costs one extra noise evaluation per pixel and no texture memory. */
+ roadMat.userData.u={wet:{value:0}};
+ roadMat.onBeforeCompile=sh=>{
+  sh.uniforms.uRoadWet=roadMat.userData.u.wet;
+  /* Carry world metres through as our own varying rather than reading vUv.
+     Three splits UVs per-map since r152, so there is no vUv to read, and the
+     one that does exist - vMapUv - only gets declared once roadMat.map is
+     set, which happens asynchronously after the textures load. The road's
+     vertices already hold absolute world coordinates and the mesh is never
+     transformed, so object space IS world space here. */
+  sh.vertexShader=sh.vertexShader
+   .replace('#include <common>',`#include <common>
+    varying vec2 vRoadW;`)
+   .replace('#include <begin_vertex>',`#include <begin_vertex>
+    vRoadW=position.xz;`);
+  sh.fragmentShader=sh.fragmentShader
+   .replace('#include <common>',`#include <common>
+    uniform float uRoadWet;varying vec2 vRoadW;
+    float rdH(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
+    float rdN(vec2 p){
+     vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);
+     return mix(mix(rdH(i),rdH(i+vec2(1,0)),f.x),
+                mix(rdH(i+vec2(0,1)),rdH(i+vec2(1,1)),f.x),f.y);
+    }`)
+   /* vRoadW is in world metres, so the noise is anchored to the city and
+      never swims when the camera moves. */
+   .replace('#include <map_fragment>',`#include <map_fragment>
+    vec2 rdW=vRoadW;
+    float rdM=rdN(rdW*0.030)*0.63+rdN(rdW*0.0105)*0.37;
+    diffuseColor.rgb*=0.82+0.32*rdM;
+    float rdP=smoothstep(0.63,0.80,rdN(rdW*0.016+31.7));
+    diffuseColor.rgb*=1.0-0.11*rdP;`)
+   .replace('#include <roughnessmap_fragment>',`#include <roughnessmap_fragment>
+    float rdG=rdN(vRoadW*1.9)*0.5+rdN(vRoadW*0.28)*0.5;
+    roughnessFactor*=mix(0.88+0.20*rdG,1.0,uRoadWet);`);
+ };
  roadMesh=new THREE.Mesh(g,roadMat);
  roadMesh.name='road';
  roadMesh.receiveShadow=true;
@@ -795,10 +1003,30 @@ let signalLensMat=null,kerbMat=null;
  /* Twelve slots: the first six are the low-rise mix, the last six the taller
     blocks. More variants means a street reads as a street rather than one
     building copy-pasted down the block. */
- const variants=[{wall:'#e6d3b8',cols:4,rows:5},{wall:'#d9a58f',cols:4,rows:4},{wall:'#c2cec2',cols:5,rows:4},
- {wall:'#d97f6f',cols:4,rows:5},{wall:'#c9b79a',cols:5,rows:5},{wall:'#a8b0a4',cols:4,rows:6},
- {wall:'#7e989e',cols:6,rows:12},{wall:'#8fa6a5',cols:5,rows:10},{wall:'#6f7f8c',cols:6,rows:14},
- {wall:'#9aa3ad',cols:5,rows:11},{wall:'#87909b',cols:6,rows:13},{wall:'#b0a394',cols:5,rows:9}];
+ /* Nine low-rise then nine towers. These are only the procedural fallback
+    walls - FACADE_FOR replaces each one with a generated texture at the same
+    index - so the order here IS the slot order and the two lists must agree. */
+ const variants=[
+  {wall:'#e6d3b8',cols:4,rows:5},{wall:'#d9a58f',cols:4,rows:4},{wall:'#c2cec2',cols:5,rows:4},
+  {wall:'#d97f6f',cols:4,rows:5},{wall:'#c9b79a',cols:5,rows:5},{wall:'#a8b0a4',cols:4,rows:6},
+  {wall:'#9a9894',cols:6,rows:5},{wall:'#d8c3a5',cols:5,rows:5},{wall:'#bfae97',cols:5,rows:6},
+  {wall:'#7e989e',cols:6,rows:12},{wall:'#8fa6a5',cols:5,rows:10},{wall:'#6f7f8c',cols:6,rows:14},
+  {wall:'#9aa3ad',cols:5,rows:11},{wall:'#87909b',cols:6,rows:13},{wall:'#b0a394',cols:5,rows:9},
+  {wall:'#7f9a8c',cols:6,rows:12},{wall:'#a5a8a4',cols:5,rows:12},{wall:'#7a8088',cols:6,rows:13}];
+ const LOW_VARIANTS=9;
+ /* Tile the facade to a human storey height instead of stretching one image
+    over the whole building. BoxGeometry's vertex order is +x,-x,+y,-y,+z,-z in
+    blocks of four, so the side faces scale by depth/width and the top face is
+    collapsed onto one flat patch of the texture. */
+ const facadeBox=(w,h,d)=>{
+  const g=new THREE.BoxGeometry(w,h,d), uv=g.attributes.uv;
+  const TW=13,TH=17;                        /* world metres per facade tile */
+  const ru=Math.max(1,Math.round(d/TW)),rw=Math.max(1,Math.round(w/TW)),rv=Math.max(1,Math.round(h/TH));
+  for(let i=0;i<8;i++)  uv.setXY(i,uv.getX(i)*ru,uv.getY(i)*rv);
+  for(let i=16;i<24;i++)uv.setXY(i,uv.getX(i)*rw,uv.getY(i)*rv);
+  for(let i=8;i<12;i++) uv.setXY(i,.05,.95);
+  return g;
+ };
  const roofMat=new THREE.MeshStandardMaterial({color:0x34383e,roughness:.85,metalness:.05});
  const mats=variants.map(v=>{
   const w=128,h=v.rows>8?256:128;
@@ -820,6 +1048,9 @@ let signalLensMat=null,kerbMat=null;
   facadeMats.push(m);return m;
  });
  const bags=variants.map(()=>[]),roofs=[];
+ /* Every roof this loop caps, so the plant that belongs up there can be built
+    once the heights are known: {x,z,y,w,d,tall}. */
+ const roofTops=[];
  for(let bi=0;bi<BLOCKS;bi++)for(let bj=0;bj<BLOCKS;bj++){
   if(blockType[bi][bj]!=='lot')continue;
   const x1=roadC(bi)+ROAD/2+3.2,z1=roadC(bj)+ROAD/2+3.2,x2=roadC(bi+1)-ROAD/2-3.2,z2=roadC(bj+1)-ROAD/2-3.2;
@@ -834,42 +1065,71 @@ let signalLensMat=null,kerbMat=null;
    const inset=rand(0,2.2),bx1=lx1+inset,bz1=lz1+inset,bx2=lx2-inset,bz2=lz2-inset;
    const w=Math.max(9,bx2-bx1),d=Math.max(9,bz2-bz1),h=dc<1.6?rand(36,88):dc<3?rand(15,40):rand(8,22);
    const cx=(bx1+bx2)/2,cz=(bz1+bz2)/2;
-   const v=h>30?pick(variants.slice(6)):pick(variants.slice(0,6));
-   /* Tall blocks get a setback: the upper third steps in, which is what makes
-      a skyline read as a skyline instead of a row of identical slabs. */
-   const stepped=h>34&&Math.random()<.62;
-   const bg=new THREE.BoxGeometry(w,stepped?h*.72:h,d);
-   const uv=bg.attributes.uv;
-   /* Tile the facade to a human storey height instead of stretching one
-      image over the whole building. BoxGeometry vertex order is
-      +x,-x,+y,-y,+z,-z in blocks of four. */
-   {
-    const TW=13,TH=17;                       /* world metres per facade tile */
-    const ru=Math.max(1,Math.round(d/TW)),rw=Math.max(1,Math.round(w/TW)),rv=Math.max(1,Math.round(h/TH));
-    for(let i=0;i<4;i++){const u=uv.getX(i),v=uv.getY(i);uv.setXY(i,u*ru,v*rv)}
-    for(let i=4;i<8;i++){const u=uv.getX(i),v=uv.getY(i);uv.setXY(i,u*ru,v*rv)}
-    for(let i=16;i<24;i++){const u=uv.getX(i),v=uv.getY(i);uv.setXY(i,u*rw,v*rv)}
-   }
-   for(let i=8;i<12;i++)uv.setXY(i,.05,.95);
-   if(stepped){
-    bg.translate(cx,h*.36,cz);
-    const tw=w*rand(.55,.74),td=d*rand(.55,.74),th=h*.28;
-    const top=new THREE.BoxGeometry(tw,th,td);
-    const tuv=top.attributes.uv;
-    const tru=Math.max(1,Math.round(td/13)),trw=Math.max(1,Math.round(tw/13)),trv=Math.max(1,Math.round(th/17));
-    for(let i=0;i<8;i++)tuv.setXY(i,tuv.getX(i)*tru,tuv.getY(i)*trv);
-    for(let i=16;i<24;i++)tuv.setXY(i,tuv.getX(i)*trw,tuv.getY(i)*trv);
-    for(let i=8;i<12;i++)tuv.setXY(i,.05,.95);
-    top.translate(cx+rand(-1.5,1.5),h*.72+th/2,cz+rand(-1.5,1.5));
-    bags[variants.indexOf(v)].push(top);
-    roofs.push(new THREE.BoxGeometry(tw+.4,.45,td+.4).translate(cx,h*.72+th+.02,cz));
-    roofs.push(new THREE.BoxGeometry(w+.4,.45,d+.4).translate(cx,h*.72+.02,cz));
+   const v=h>30?pick(variants.slice(LOW_VARIANTS)):pick(variants.slice(0,LOW_VARIANTS));
+   const bag=bags[variants.indexOf(v)];
+
+   /* One mass of the building: facade box, parapet cap, and a roof registered
+      for plant. Everything below composes forms out of these. */
+   const addMass=(mw,mh,md,mx,mbase,mz)=>{
+    bag.push(facadeBox(mw,mh,md).translate(mx,mbase+mh/2,mz));
+    roofs.push(new THREE.BoxGeometry(mw+.4,.45,md+.4).translate(mx,mbase+mh+.02,mz));
+    roofTops.push({x:mx,z:mz,y:mbase+mh+.25,w:mw,d:md,tall:mbase+mh});
+   };
+   /* A tall box with nothing between base and parapet is a slab. One
+      protruding ledge partway up is the cheapest thing that reads as storeys
+      stacking, and it catches the sun along a hard line the flat wall cannot. */
+   const addLedge=(mw,mh,md,mx,mz)=>{
+    if(mh>34&&Math.random()<.7)
+     roofs.push(new THREE.BoxGeometry(mw+.55,.35,md+.55).translate(mx,mh*rand(.38,.60),mz));
+   };
+
+   /* ---- form ----
+      Every lot used to be a box with an optional one-step setback. Twelve wall
+      textures on one silhouette still reads as twelve copies of the same
+      building, because the thing you actually recognise - from the street and
+      on the skyline - is the shape. Each form registers its own collision
+      footprint, so an L does not put an invisible wall across its own
+      courtyard the way a single bounding box would. */
+   const roll=Math.random();
+   let form;
+   if(w>19&&d>19&&roll<.18)      form='ell';
+   else if(h>52&&roll<.40)       form='tiered';
+   else if(h>34&&roll<.80)       form='stepped';
+   else                          form='slab';
+
+   if(form==='ell'){
+    /* two wings meeting at a corner, with the corner picked at random so the
+       courtyards do not all face the same way down a street */
+    const fx=Math.random()<.5?1:-1, fz=Math.random()<.5?1:-1;
+    const aw=w, ad=d*rand(.42,.55);
+    const bw=w*rand(.38,.52), bd=d-ad;
+    const az=cz+fz*(d/2-ad/2);
+    const bx=cx+fx*(w/2-bw/2), bz=cz-fz*(ad/2);
+    addMass(aw,h,ad,cx,0,az);
+    addMass(bw,h*rand(.72,1.0),bd,bx,0,bz);
+    addLedge(aw,h,ad,cx,az);
+    AABBs.push({x1:cx-aw/2,z1:az-ad/2,x2:cx+aw/2,z2:az+ad/2});
+    AABBs.push({x1:bx-bw/2,z1:bz-bd/2,x2:bx+bw/2,z2:bz+bd/2});
+   }else if(form==='tiered'){
+    /* three decreasing stacks - the pre-war setback tower */
+    const h1=h*.52,h2=h*.29,h3=h*.19;
+    const w2=w*rand(.70,.80),d2=d*rand(.70,.80);
+    const w3=w*rand(.42,.54),d3=d*rand(.42,.54);
+    addMass(w,h1,d,cx,0,cz);
+    addMass(w2,h2,d2,cx,h1,cz);
+    addMass(w3,h3,d3,cx,h1+h2,cz);
+    AABBs.push({x1:cx-w/2,z1:cz-d/2,x2:cx+w/2,z2:cz+d/2});
+   }else if(form==='stepped'){
+    const th=h*.28, tw=w*rand(.55,.74), td=d*rand(.55,.74);
+    addMass(w,h*.72,d,cx,0,cz);
+    addMass(tw,th,td,cx+rand(-1.5,1.5),h*.72,cz+rand(-1.5,1.5));
+    addLedge(w,h,d,cx,cz);
+    AABBs.push({x1:cx-w/2,z1:cz-d/2,x2:cx+w/2,z2:cz+d/2});
    }else{
-    bg.translate(cx,h/2,cz);
-    roofs.push(new THREE.BoxGeometry(w+.4,.45,d+.4).translate(cx,h+.02,cz));
+    addMass(w,h,d,cx,0,cz);
+    addLedge(w,h,d,cx,cz);
+    AABBs.push({x1:cx-w/2,z1:cz-d/2,x2:cx+w/2,z2:cz+d/2});
    }
-   bags[variants.indexOf(v)].push(bg);
-   AABBs.push({x1:cx-w/2,z1:cz-d/2,x2:cx+w/2,z2:cz+d/2});
    if(h>50)signSpots.push({x:cx,z:cz,w,d,h});
   }
  }
@@ -906,6 +1166,75 @@ let signalLensMat=null,kerbMat=null;
    scene.add(m);
   }
  };
+ /* ---- rooftop plant ----
+    Every roof in the city was a bare capped box. You are looking down at them
+    from the opening orbit, from any tower window, and from the top of anything
+    you climb - and an empty roof is the clearest possible tell that a building
+    is a prop rather than a place. Real ones carry the machinery that makes the
+    floors below habitable, and that machinery is all boxes and cylinders, so
+    it costs almost nothing: tanks, stair bulkheads, condenser banks, vents,
+    and a mast on whatever is tall enough to justify one.
+
+    Placement is inset from the parapet by a clear margin, because plant
+    hanging over the edge reads as broken rather than busy. */
+ {
+  const metal=[],tank=[],trim=[];
+  for(const r of roofTops){
+   const hw=r.w/2-1.4, hd=r.d/2-1.4;
+   if(hw<1.2||hd<1.2)continue;                 /* too small to carry anything */
+   const jx=()=>r.x+rand(-hw,hw), jz=()=>r.z+rand(-hd,hd);
+
+   /* stair / lift bulkhead - the one thing nearly every roof has */
+   if(Math.random()<.85){
+    const bw=Math.min(r.w*rand(.22,.38),8), bd=Math.min(r.d*rand(.22,.38),8);
+    const bh=rand(2.4,3.8);
+    const bx=r.x+rand(-Math.max(0,hw-bw/2),Math.max(0,hw-bw/2));
+    const bz=r.z+rand(-Math.max(0,hd-bd/2),Math.max(0,hd-bd/2));
+    trim.push(B(bw,bh,bd,bx,r.y+bh/2,bz));
+    trim.push(B(bw+.3,.22,bd+.3,bx,r.y+bh+.11,bz));   /* its own little cap */
+   }
+
+   /* timber water tank on a steel frame - low and mid rise only, which is
+      where they actually sit */
+   if(r.tall<46&&Math.random()<.55){
+    const tx=jx(), tz=jz(), legH=rand(1.6,2.6), R=rand(1.1,1.7), TH2=rand(2.2,3.2);
+    for(const [ox,oz] of [[R*.62,R*.62],[-R*.62,R*.62],[R*.62,-R*.62],[-R*.62,-R*.62]])
+     metal.push(B(.16,legH,.16,tx+ox,r.y+legH/2,tz+oz));
+    tank.push(new THREE.CylinderGeometry(R,R*.96,TH2,10).translate(tx,r.y+legH+TH2/2,tz));
+    tank.push(new THREE.ConeGeometry(R*1.08,R*.5,10).translate(tx,r.y+legH+TH2+R*.25,tz));
+   }
+
+   /* condenser bank - the flat grilles that cover a commercial roof */
+   const acs=1+((Math.random()*4)|0);
+   for(let k=0;k<acs;k++){
+    const ax=jx(), az=jz(), aw=rand(1.0,1.9), ad=rand(.9,1.5), ah=rand(.6,1.1);
+    metal.push(B(aw,ah,ad,ax,r.y+ah/2,az));
+    metal.push(B(aw*.8,.1,ad*.8,ax,r.y+ah+.05,az));    /* fan deck */
+   }
+
+   /* vent stacks */
+   const vents=(Math.random()*3)|0;
+   for(let k=0;k<vents;k++){
+    const vx=jx(), vz=jz(), vh=rand(.7,1.8);
+    metal.push(new THREE.CylinderGeometry(.19,.19,vh,7).translate(vx,r.y+vh/2,vz));
+   }
+
+   /* a mast, only where the building is tall enough to be worth one */
+   if(r.tall>52&&Math.random()<.6){
+    const mx=jx(), mz=jz(), mh=rand(7,15);
+    metal.push(new THREE.CylinderGeometry(.10,.16,mh,6).translate(mx,r.y+mh/2,mz));
+    for(let k=0;k<3;k++)
+     metal.push(B(rand(1.0,1.9),.09,.09,mx,r.y+mh*(.45+k*.17),mz));
+   }
+  }
+  const metalMat=new THREE.MeshStandardMaterial({color:0x8d949c,roughness:.62,metalness:.55,envMapIntensity:.8});
+  const tankMat =new THREE.MeshStandardMaterial({color:0x6b5340,roughness:.88,metalness:.03});
+  const trimMat =new THREE.MeshStandardMaterial({color:0x5e6167,roughness:.85,metalness:.05});
+  emit(metal,metalMat,true);
+  emit(tank, tankMat, true);
+  emit(trim, trimMat, true);
+ }
+
  bags.forEach((list,i)=>{if(list.length)emit(list,mats[i],true)});
  emit(roofs,roofMat,false);
 }
@@ -913,10 +1242,28 @@ let signalLensMat=null,kerbMat=null;
 /* ---- raised pavements + kerbs (one merged mesh for the whole city) ---- */
 {
  const slabs=[],KERB=.15;
+ const slab=(x1,z1,x2,z2)=>slabs.push(
+  new THREE.BoxGeometry(x2-x1,KERB,z2-z1).translate((x1+x2)/2,KERB/2,(z1+z2)/2));
  for(let bi=0;bi<BLOCKS;bi++)for(let bj=0;bj<BLOCKS;bj++){
   const x1=roadC(bi)+ROAD/2,z1=roadC(bj)+ROAD/2;
   const x2=roadC(bi+1)-ROAD/2,z2=roadC(bj+1)-ROAD/2;
-  slabs.push(new THREE.BoxGeometry(x2-x1,KERB,z2-z1).translate((x1+x2)/2,KERB/2,(z1+z2)/2));
+  /* This slab is what the whole block stands on, paving and all - which is
+     fine under a building and wrong under anything planted. Those blocks get
+     the footway as a ring instead, leaving the middle open so the ground the
+     canvas painted is the thing you actually walk on. The 15cm drop at the
+     kerb line is what a planted bed does anyway. */
+  /* Parks had the same problem the jungle did: grass painted into the ground
+     canvas, then buried under a full-block paving slab, so every park was a
+     stand of trees on concrete. Same ring treatment. */
+  if(isJungle(bi,bj)||blockType[bi][bj]==='park'){
+   const P=3.2;                       /* footway depth, matching the canvas */
+   slab(x1,z1,x2,z1+P);
+   slab(x1,z2-P,x2,z2);
+   slab(x1,z1+P,x1+P,z2-P);
+   slab(x2-P,z1+P,x2,z2-P);
+   continue;
+  }
+  slab(x1,z1,x2,z2);
  }
  /* This slab covers the pavement painted into the ground canvas, so it needs
     its own texture - otherwise every pavement reads as flat beige. */
@@ -1166,6 +1513,52 @@ const lampGlows=[],GLOW_DIST=115;
  for(const pk of parks){
   for(let k=0;k<4;k++){const x=pk.x+rand(-15,15),z=pk.z+rand(-15,15);addPalm(x,z);addProp(x,z,.34)}
   for(let k=0;k<5;k++){const x=pk.x+rand(-16,16),z=pk.z+rand(-16,16);addBroadleaf(x,z);addProp(x,z,.30)}
+ }
+
+ /* ---- the jungle district ----
+    A park is trees you can see past. A jungle is trees you cannot, and the
+    only thing separating the two here is density and layering: a closed upper
+    canopy of palms, a broadleaf mid-storey filling the gaps between the
+    trunks, and undergrowth low enough to hide the floor.
+
+    Trunks get collision, undergrowth does not. Nine collision props per
+    block-tree is already the most expensive thing on these blocks, and a bush
+    you cannot drive through is far more annoying than one you can. */
+ {
+  const bushBits=[];
+  function addUndergrowth(px,pz){
+   const n=2+((Math.random()*3)|0);
+   for(let k=0;k<n;k++){
+    const R=rand(.55,1.35);
+    const b=new THREE.IcosahedronGeometry(R,0);
+    b.applyMatrix4(_m4().makeScale(rand(.9,1.4),rand(.45,.75),rand(.9,1.4)));
+    b.translate(px+rand(-1.1,1.1),R*rand(.30,.55),pz+rand(-1.1,1.1));
+    (Math.random()<.5?leafBits:bushBits).push(b);
+   }
+  }
+  for(let bi=JUNGLE.i0;bi<=JUNGLE.i1;bi++)for(let bj=JUNGLE.j0;bj<=JUNGLE.j1;bj++){
+   const cx=roadC(bi)+ROAD/2+BLOCK/2, cz=roadC(bj)+ROAD/2+BLOCK/2;
+   const H=BLOCK/2-2.5;          /* keep the canopy off the pavement */
+   /* upper canopy */
+   for(let k=0;k<13;k++){
+    const x=cx+rand(-H,H),z=cz+rand(-H,H);
+    addPalm(x,z);addProp(x,z,.36);
+   }
+   /* mid-storey, the layer that actually closes the sightlines */
+   for(let k=0;k<20;k++){
+    const x=cx+rand(-H,H),z=cz+rand(-H,H);
+    addBroadleaf(x,z);addProp(x,z,.32);
+   }
+   /* floor cover, no collision */
+   for(let k=0;k<34;k++)addUndergrowth(cx+rand(-H,H),cz+rand(-H,H));
+  }
+  /* a third leaf tone so the mass does not read as one flat green */
+  if(bushBits.length){
+   const m=new THREE.Mesh(mergeG(bushBits),
+    new THREE.MeshStandardMaterial({color:0x1f5c2e,roughness:.68,metalness:.03,
+                                    envMapIntensity:.4,side:THREE.DoubleSide}));
+   m.castShadow=true;m.receiveShadow=true;scene.add(m);
+  }
  }
  /* street trees: a palm on the pavement at every other junction corner */
  for(let i=0;i<=BLOCKS;i++)for(let j=0;j<=BLOCKS;j++){
@@ -1479,7 +1872,13 @@ const BASE_VEHICLES=VEHICLES.slice();
 const geoBody=VEHICLES[0].geoBody,geoCab=VEHICLES[0].geoCab;
 const geoBar=new THREE.BoxGeometry(.5,.15,.34);
 /* dark glass and near-black trim, shared by every generated vehicle */
-const carGlassMat=new THREE.MeshStandardMaterial({color:0x0e1318,roughness:.06,metalness:.65,envMapIntensity:2.2});
+/* Automotive glass: slightly tinted, highly reflective, with a hint of the
+   environment showing through. MeshPhysicalMaterial gives us IOR-based
+   Fresnel that MeshStandard cannot — the windows go nearly opaque at
+   grazing angles and show a sliver of interior head-on, exactly like a
+   real car on the street. */
+const carGlassMat=new THREE.MeshPhysicalMaterial({color:0x0c121a,roughness:.12,metalness:.10,
+  envMapIntensity:1.15,clearcoat:.45,clearcoatRoughness:.12,reflectivity:.72,ior:1.48});
 const carTrimMat=new THREE.MeshLambertMaterial({color:0x0d0f12});
 /* wheels are cached by radius rounded to the centimetre, so the whole city
    shares a handful of cylinders no matter how many cars are spawned */
@@ -1492,7 +1891,7 @@ function hubGeoFor(r){
  const k=Math.round(r*100);
  return hubGeoCache[k]||(hubGeoCache[k]=new THREE.CylinderGeometry(r*.58,r*.58,r*.80,12));
 }
-const hubMat=new THREE.MeshStandardMaterial({color:0xa5abb5,roughness:.22,metalness:.90,envMapIntensity:1.6});
+const hubMat=new THREE.MeshStandardMaterial({color:0xa5abb5,roughness:.28,metalness:.85,envMapIntensity:1.2});
 const archMat=new THREE.MeshBasicMaterial({color:0x07090b,side:THREE.DoubleSide});
 const archGeoCache={};
 function archGeoFor(V){
@@ -1504,7 +1903,9 @@ function archGeoFor(V){
  return archGeoCache[V.name]=mergeG(parts);
 }
 const tireMat=new THREE.MeshLambertMaterial({color:0x14161a}),glassMat=new THREE.MeshLambertMaterial({color:0x1d2733}),
-copBodyMat=new THREE.MeshStandardMaterial({color:0xf2f4f8,roughness:.18,metalness:.25,envMapIntensity:1.75});
+/* Clearcoat on cop cars: balanced gloss without blinding specular glare */
+copBodyMat=new THREE.MeshPhysicalMaterial({color:0xf2f4f8,roughness:.20,metalness:.18,envMapIntensity:1.2,
+  clearcoat:.7,clearcoatRoughness:.08});
 const bodyMats={},CARCOLS=['#d94f4f','#e8b23c','#4fa3d9','#7bc47f','#e8e8e8','#5a5f66','#c76bb0','#2e2f33'];
 function makeCar(color,cop,kind){
  const g=new THREE.Group();
@@ -1515,9 +1916,15 @@ function makeCar(color,cop,kind){
  g.userData.kind=V.name;g.userData.len=(V.dims&&V.dims.l)||V.axle*2+1.5;
  g.userData.wid=(V.dims&&V.dims.w)||1.96;
  g.userData.handling=V.handling||null;g.userData.wheelR=V.wheelR||null;g.rotation.order='YXZ';
- const bm=bodyMats[color]||(bodyMats[color]=new THREE.MeshStandardMaterial({color,roughness:.18,metalness:.28,envMapIntensity:1.85}));
+ const bm=bodyMats[color]||(bodyMats[color]=new THREE.MeshPhysicalMaterial({color,roughness:.22,metalness:.18,envMapIntensity:1.25,
+    clearcoat:.65,clearcoatRoughness:.10}));
  const shell=cop&&V.geoCop?V.geoCop:V.geoBody;
- const paint=cop?(V.pack?packPaintFor(V,'#e9edf2'):copBodyMat):(V.pack?packPaintFor(V,color):bm);
+ /* A TRELLIS body carries its own baked paint, dirt and trim in one texture.
+    Tinting it per-instance would fight the bake, so it is used as-is. */
+ const paint=V.named?V.bodyMats
+            :V.trellis?V.trellisMat
+            :cop?(V.pack?packPaintFor(V,'#e9edf2'):copBodyMat)
+            :(V.pack?packPaintFor(V,color):bm);
  const body=new THREE.Mesh(shell,shell.userData.split?[paint,carGlassMat,carTrimMat]:paint);
  body.castShadow=true;g.add(body);
  const wheels=[];
@@ -1561,16 +1968,52 @@ function makeCar(color,cop,kind){
   }
   const lin=new THREE.Mesh(archGeoFor(V),archMat);
   lin.userData.liner=true;g.add(lin);
+ }else if(V.named&&V.namedWheels){
+  /* The modeller already placed these. Each keeps its own materials so the
+     rim, tyre and brake disc stay distinct instead of merging to one colour. */
+  for(const q of V.namedWheels){
+   const hold=new THREE.Group();hold.position.set(q.x,q.y,q.z);
+   const wm=new THREE.Mesh(q.geo,q.mats);
+   wm.castShadow=true;hold.add(wm);
+   g.add(hold);wheels.push(hold);
+  }
+ }else if(V.trellis&&V.trellisWheels){
+  /* TRELLIS wheels cut from the shell. Front pair first, because stepCar()
+     steers wheels[0] and wheels[1]. They share the body's baked material, so
+     the tread and rim match the car they came off. */
+  for(const q of V.trellisWheels){
+   const hold=new THREE.Group();hold.position.set(q.x,q.y,q.z);
+   const wm=new THREE.Mesh(q.geo,V.trellisMat);
+   wm.castShadow=true;hold.add(wm);
+   g.add(hold);wheels.push(hold);
+  }
+  /* Carving the tyre out leaves the arch open, and you could see straight
+     through the car from the side. A dark disc behind each wheel plugs it. */
+  const lin=new THREE.Mesh(archGeoFor(V),archMat);
+  lin.userData.liner=true;g.add(lin);
+ }else if(!V.trellis){
+  /* Shells with no wheelSpec: infer axle from dims and add stub cylinders.
+     Skipped for TRELLIS, whose wheels are modelled and textured into the body -
+     adding these put a second set of black cylinders through the first. */
+  const wr=V.wheel||.34, ax=(V.dims&&V.dims.l)?V.dims.l*.38:1.48;
+  const ww=(V.dims&&V.dims.w)?V.dims.w*.48:.86;
+  for(const[wx,wz]of[[ww,ax],[-ww,ax],[ww,-ax],[-ww,-ax]]){
+   const hold=new THREE.Group();hold.position.set(wx,wr,wz);
+   const tyre=new THREE.Mesh(wheelGeoFor(wr),tireMat);
+   tyre.rotation.z=Math.PI/2;tyre.castShadow=true;hold.add(tyre);
+   const hub=new THREE.Mesh(hubGeoFor(wr),hubMat);
+   hub.rotation.z=Math.PI/2;hold.add(hub);
+   g.add(hold);wheels.push(hold);
+  }
  }
  /* both headlights in one mesh, both tail lights in another - half the draws.
     Pack vehicles have modelled optics already and skip these entirely. */
  if(!V.pack){
- g.add(new THREE.Mesh(V.geoLampF,matHead));
- /* Tail lights are one shared material across the whole city, so brightening
-    them would light every car at once. The mesh is kept on the group and the
-    car you are driving gets its own instance the moment it needs one. */
- const tail=new THREE.Mesh(V.geoLampR,matTail);
- g.userData.tail=tail;g.add(tail);
+  if(V.geoLampF)g.add(new THREE.Mesh(V.geoLampF,matHead));
+  /* Tail lights are one shared material across the whole city, so brightening
+     them would light every car at once. The mesh is kept on the group and the
+     car you are driving gets its own instance the moment it needs one. */
+ if(V.geoLampR){const tail=new THREE.Mesh(V.geoLampR,matTail);g.userData.tail=tail;g.add(tail);}
  }
  if(cop){
   /* sit the bar on the real roof rather than a guessed height */
@@ -2336,7 +2779,9 @@ function syncTraffic(c){
 }
 function spawnTrafficCar(){
  const axis=pick(['x','z']),line=randi(0,BLOCKS),dir=pick([-1,1]);
- const c=addCar({axis,line,dir,t:rand(-CITY/2,CITY/2),spd:0,maxSpd:rand(8,13),color:pick(CARCOLS),ai:'traffic'});
+ /* Use full VEHICLES array so Trellis cars appear in traffic */
+ const kind=Math.floor(Math.random()*VEHICLES.length);
+ const c=addCar({axis,line,dir,t:rand(-CITY/2,CITY/2),spd:0,maxSpd:rand(9,16),color:pick(CARCOLS),ai:'traffic',kind});
  if(Math.hypot(c.x-player.x,c.z-player.z)<50){c.t+=140;if(c.t>CITY/2+30)c.t=-CITY/2-30}
  syncTraffic(c);
 }
@@ -2363,7 +2808,7 @@ function updateTraffic(dt){
   if(c.t>CITY/2+30)c.t=-CITY/2-30;if(c.t<-CITY/2-30)c.t=CITY/2+30;
   syncTraffic(c);
  }
- if(n<17&&Math.random()<dt*.75)spawnTrafficCar();
+ if(n<32&&Math.random()<dt*1.8)spawnTrafficCar();
 }
 
 /* ---- police ---- */
@@ -2462,7 +2907,7 @@ function buildMap(){
  for(let bi=0;bi<BLOCKS;bi++)for(let bj=0;bj<BLOCKS;bj++){
   const t=blockType[bi][bj];
   const x1=roadC(bi)+ROAD/2,z1=roadC(bj)+ROAD/2,w=BLOCK;
-  g.fillStyle=t==='park'?'#1d3327':t==='plaza'?'#262b34':'#212630';
+  g.fillStyle=t==='jungle'?'#122a13':t==='park'?'#1d3327':t==='plaza'?'#262b34':'#212630';
   g.fillRect(W(x1),W(z1),w*mapS,w*mapS);
  }
  /* the road network - the thing you actually navigate by */
@@ -3023,13 +3468,20 @@ function updateAudio(){
    are several minutes of it before the light starts to go, and Shift+T still
    locks night for anyone who prefers it. */
 let dayT=.27,nightLock=false;
-const cTopD=new THREE.Color(0x2f7ec8),cTopN=new THREE.Color(0x0a0f1e),
-cHorD=new THREE.Color(0xd8e6ee),cHorN=new THREE.Color(0x141a2a),cDusk=new THREE.Color(0xff8a4c),
-sunDay=new THREE.Color(0xfff0d2),sunNight=new THREE.Color(0x8fa8ff);
-const cloudDayCol=new THREE.Color(0xfffaf2),cloudDayDark=new THREE.Color(0x93a9c4),
-      cloudDuskCol=new THREE.Color(0xffcfa6),cloudDuskDark=new THREE.Color(0x7b6b86);
+/* GTA V daylight feel: richer blue sky, warmer horizon, more golden sun.
+   The original palette was tuned for night-only; this widens it so the
+   daytime sky has depth and the golden hour burns properly. */
+const cTopD=new THREE.Color(0x0d52a8),cTopN=new THREE.Color(0x04080f),
+cHorD=new THREE.Color(0xb8d8f0),cHorN=new THREE.Color(0x0d1422),cDusk=new THREE.Color(0xff6820),
+sunDay=new THREE.Color(0xffe8b0),sunNight=new THREE.Color(0x6080d8);
+const cloudDayCol=new THREE.Color(0xfdfaf4),cloudDayDark=new THREE.Color(0x7898b8),
+      cloudDuskCol=new THREE.Color(0xffb870),cloudDuskDark=new THREE.Color(0x604870);
 const sunDir=new THREE.Vector3();
-const _skyFill=new THREE.Color(0x9ec4ea);
+const _skyFill=new THREE.Color(0x8cb8e4);
+/* Colours for the hemisphere light's ground bounce — warm in daylight
+   (sun hitting concrete and sand), cool blue-grey at night (moonlit asphalt) */
+const _hemiGroundDay=new THREE.Color(0x8a7a5e),_hemiGroundNight=new THREE.Color(0x1e1c1a),
+      _hemiGroundDusk=new THREE.Color(0x6d5a42);
 function updateSky(dt){
  /* Slower cycle, and time passes at half speed while it is dark - the
     textures are lit for night, so that is where the game should live. */
@@ -3058,24 +3510,18 @@ function updateSky(dt){
  skyU.cloudCol.value.copy(cloudDuskCol).lerp(cloudDayCol,1-duskAmt);
  skyU.cloudDark.value.copy(cloudDuskDark).lerp(cloudDayDark,1-duskAmt);
  if(rainOn){skyU.cloudCol.value.multiplyScalar(.72);skyU.cloudDark.value.multiplyScalar(.62)}
- /* Fog took the horizon colour exactly, so distant buildings dissolved into a
-    band the same tone as the sky and the skyline lost its edge. Real haze is
-    a little bluer and a little darker than the sky right above it. */
- scene.fog.color.copy(skyU.hor.value).lerp(skyU.top.value,.22*dayAmt);
- sun.color.copy(sunNight).lerp(sunDay,dayAmt);
- /* a cool key from above at night - without it the city is unlit geometry */
- hemi.color.copy(cHorN).lerp(_skyFill,dayAmt);
- /* bounce off the road is warm and dim, not neutral grey */
- hemi.groundColor.set(nightAmt>.5?0x2a2320:0x7a6a54);
- /* Daylight was lit almost flat: a 1.49 key against a 0.90 hemisphere fill is
-    nearly 1:1, which erases shadow contrast and with it every bit of form -
-    the reason midday read as washed-out and fake while night looked good.
-    Real sun-to-sky is far wider. The key goes up, the fill comes down, and
-    shadows become readable without going pitch black. */
- /* A wider key-to-fill ratio than before. Sunlight outdoors is roughly two
-    orders of magnitude over skylight; anything close to 1:1 erases the shadow
-    side of every surface, which is what made midday read as flat and fake. */
- sun.intensity=.28+dayAmt*2.75;
+ /* Fog that dissolves INTO the sky: more blue/top mixed in during the day
+     so distant buildings cool off; dusk fog picks up the orange glow */
+  scene.fog.color.copy(skyU.hor.value).lerp(skyU.top.value,.28*dayAmt).lerp(cDusk,duskAmt*.25);
+  sun.color.copy(sunNight).lerp(sunDay,dayAmt).lerp(cDusk,duskAmt*.45);
+  /* a cool key from above at night - without it the city is unlit geometry */
+  hemi.color.copy(cHorN).lerp(_skyFill,dayAmt);
+  /* Ground bounce tracks the time of day: warm sand/concrete in sunlight,
+     amber at dusk, cool asphalt at night */
+  hemi.groundColor.copy(_hemiGroundNight).lerp(_hemiGroundDay,dayAmt).lerp(_hemiGroundDusk,duskAmt*.6);
+  /* GTA V daylight: the key light is strong enough to punch hard shadows
+     but the hemisphere fill keeps the shadow side readable */
+  sun.intensity=.25+dayAmt*3.2;
  /* Below the horizon the sun casts nothing meaningful, but three.js was still
     re-rendering the whole city into a 2048px shadow map every frame for it.
     Dropping the pass after dark removes an entire scene traversal from the
@@ -3091,7 +3537,7 @@ function updateSky(dt){
     else. Outdoors the sky is a genuinely bright source; the daytime figure
     goes UP, not down, and the contrast comes from the key being higher
     still. */
- hemi.intensity=.62+dayAmt*.55;
+  hemi.intensity=.58+dayAmt*.62;
  sun.position.set(player.x+sunDir.x*180,sunDir.y*180+40,player.z+sunDir.z*180);
  sun.target.position.set(player.x,0,player.z);
  sunSprite.position.copy(sunDir).multiplyScalar(1300);
@@ -3123,14 +3569,35 @@ function updateSky(dt){
     costs nothing and needs no shader recompile, and it winds back to 1 as the
     sun goes down - the night look is untouched. */
  const dayGain=1+dayAmt*3.4;
+ /* A day-exposed wall must not be lifted the way a night one is. dayGain is
+    a 4.4x multiplier that exists to drag the dark night albedos up into
+    daylight; applied to a texture that was already generated in daylight it
+    blows the whole city to white. */
+ const dayWallGain=.82+dayAmt*.30;
  for(const m of facadeMats){
-  m.color.setScalar(dayGain);
+  /* Swap the albedo with the clock, the way the road and kerb already do.
+     Until this existed every wall in the city was the night texture - the
+     prompts that generated them asked for "night, wet neon reflections in
+     magenta and cyan" - so the whole skyline glowed magenta at midday. */
+  const u=m.userData;
+  let onDay=false;
+  if(u&&u.dayTex){
+   onDay=dayAmt01>.35;
+   const want=onDay?u.dayTex:u.nightTex;
+   if(want&&m.map!==want){m.map=want;m.needsUpdate=true}
+   if(want===u.nightTex)onDay=false;      /* day-only walls have no night set */
+  }
+  m.color.setScalar(onDay?dayWallGain:dayGain);
   m.emissiveIntensity=.05+nightAmt*.85;
  }
  for(const m of shopMats){
   /* until the generated row arrives these still carry their fallback tint,
      and scaling that would turn an unlit shopfront into a glowing slab */
-  if(m.map)m.color.setScalar(dayGain);
+  /* Shopfronts are still night plates - no day set was generated for them -
+     so they do need lifting, but not by the full 4.4x the walls used to take.
+     At that gain a shop window at noon reads as a lightbox. Same value at
+     night, gentler through the day. */
+  if(m.map)m.color.setScalar(1+dayAmt*2.2);
   m.emissiveIntensity=.05+nightAmt*1.5;
  }
  for(const m of signMats)m.opacity=.2+nightAmt*.5;
@@ -3720,7 +4187,7 @@ function updateWitness(dt){
 /* ================= /WITNESS SYSTEM ================= */
 
 addCar({x:roadC(4)-5,z:roadC(4)+16,h:0,color:'#e8b23c'});
-for(let i=0;i<18;i++)spawnTrafficCar();
+for(let i=0;i<30;i++)spawnTrafficCar();
 /* the crowd can be this big because most of it is one draw each */
 for(let i=0;i<44;i++)spawnPed();
 
@@ -3787,14 +4254,14 @@ function addBeams(g){
   _beamGeo.rotateX(-Math.PI/2);
   const bc=document.createElement('canvas');bc.width=bc.height=64;const bg=bc.getContext('2d');
   const gr=bg.createLinearGradient(0,0,0,64);
-  gr.addColorStop(0,'rgba(255,240,205,.85)');gr.addColorStop(1,'rgba(255,225,170,0)');
+  gr.addColorStop(0,'rgba(255,235,190,.70)');gr.addColorStop(1,'rgba(255,220,160,0)');
   bg.fillStyle=gr;bg.fillRect(0,0,64,64);
   const bt=new THREE.CanvasTexture(bc);bt.colorSpace=THREE.SRGBColorSpace;
-  _beamMat=new THREE.MeshBasicMaterial({map:bt,transparent:true,opacity:0,blending:THREE.AdditiveBlending,depthWrite:false,side:THREE.DoubleSide,fog:true});
+  _beamMat=new THREE.MeshBasicMaterial({map:bt,transparent:true,opacity:0,blending:THREE.AdditiveBlending,depthWrite:false,side:THREE.FrontSide,fog:true});
  }
  for(const sgn of[-1,1]){
   const b=new THREE.Mesh(_beamGeo,_beamMat);
-  b.position.set(sgn*.68,.62,2.3);b.rotation.x=.055;
+  b.position.set(sgn*.68,.58,2.35);b.rotation.x=.045;
   b.renderOrder=2;g.add(b);
  }
  g.userData.hasBeams=true;
@@ -3856,6 +4323,36 @@ const GradeShader={
 };
 composer=new EffectComposer(renderer);
 composer.addPass(new RenderPass(scene,camera));
+
+/* ---- ambient occlusion ----
+   The one lighting term the scene had no answer for. A single directional sun
+   plus a flat environment means nothing ever darkens where two surfaces meet,
+   so kerbs, doorways, wheel arches and the gap under a parked car all stayed
+   the same brightness as open road - which is the main reason objects read as
+   sitting NEAR the ground rather than on it.
+
+   Loaded dynamically and behind a try, because it is the one pass here that
+   costs a full depth-normal prepass of the city. If the module cannot be
+   fetched the game carries on without it rather than failing to boot. */
+let gtaoPass=null;
+(async()=>{
+ try{
+  const {GTAOPass}=await import('three/addons/postprocessing/GTAOPass.js');
+  gtaoPass=new GTAOPass(scene,camera,innerWidth,innerHeight);
+  /* Tuned for street scale: a 0.4m radius is about the width of a kerb, which
+     is the smallest contact that needs to read. Bigger radii start shading
+     whole walls and the city goes muddy. */
+  gtaoPass.updateGtaoMaterial({radius:0.42,distanceExponent:1.6,thickness:1.0,
+                               scale:1.0,samples:12,screenSpaceRadius:false});
+  gtaoPass.blendIntensity=0.85;
+  gtaoPass.enabled=!!TIERS[qual].ao;
+  /* before bloom, so an occluded corner cannot bloom back out again */
+  composer.insertPass(gtaoPass,1);
+  composer.setSize(innerWidth,innerHeight);
+ }catch(e){
+  console.warn('[vicecoast] ambient occlusion unavailable: '+e.message);
+ }
+})();
 bloomPass=new UnrealBloomPass(new THREE.Vector2(innerWidth,innerHeight),.62,.85,.92);
 /* bloom at ~55% resolution - visually identical after the blur, roughly 3x cheaper */
 {const _bs=bloomPass.setSize.bind(bloomPass);
@@ -3897,18 +4394,28 @@ function updateFX(dt){
   if(groundMat.normalMap)groundMat.normalMap.offset.y=fxTime*.006;
  }
  if(roadMat){
+  if(roadDayTex&&roadNightTex){
+   const wantMap=(dayAmt01>.35)?roadDayTex:roadNightTex;
+   if(roadMat.map!==wantMap){roadMat.map=wantMap;roadMat.needsUpdate=true}
+  }
   /* dry asphalt is genuinely rough - it only goes glossy when it is wet.
      With a roughness MAP now present these become multipliers on it, so the
      dry end sits at 1.0 and lets the map do the talking. */
-  roadMat.roughness=lerp(1,.34,wet);
-  roadMat.metalness=lerp(.02,.30,wet);
-  roadMat.envMapIntensity=lerp(.22,1.7,wet)*(1+nightAmt01*.45);
-  roadMat.color.setScalar(lerp(1,.66,wet));
-  /* relief flattens out as the surface floods, rather than vanishing when dry */
-  if(roadMat.normalMap){const n=lerp(.85,.35,wet);roadMat.normalScale.set(n,n)}
+   roadMat.roughness=lerp(1,.32,wet);
+   roadMat.metalness=lerp(0.0,.22,wet);
+   roadMat.envMapIntensity=lerp(.18,1.6,wet)*(1+nightAmt01*.40);
+   roadMat.color.setScalar(lerp(1,.68,wet));
+   /* relief flattens out as the surface floods, rather than vanishing when dry */
+   if(roadMat.normalMap){const n=lerp(1.40,.45,wet);roadMat.normalScale.set(n,n)}
+   /* standing water fills the pores, so the dry grit fades out as it rains */
+   if(roadMat.userData.u)roadMat.userData.u.wet.value=wet;
  }
  if(markMat)markMat.emissiveIntensity=nightAmt01*.16;
  if(kerbMat&&kerbMat.map){
+  if(kerbDayTex&&kerbNightTex){
+   const wantKerb=(dayAmt01>.35)?kerbDayTex:kerbNightTex;
+   if(kerbMat.map!==wantKerb){kerbMat.map=wantKerb;kerbMat.needsUpdate=true}
+  }
   kerbMat.roughness=lerp(.92,.34,wet);
   kerbMat.metalness=lerp(.02,.30,wet);
   kerbMat.envMapIntensity=lerp(.3,1.5,wet)*(1+nightAmt01*.4);
@@ -3944,7 +4451,7 @@ function updateFX(dt){
   beamCar=pc;
  }
  if(_beamMat){
-  _beamMat.opacity=nightAmt01*(.55+wet*.3);
+  _beamMat.opacity=nightAmt01*(.38+wet*.20);
   /* two long additive cones straight down the middle of the screen - worth
      switching off entirely rather than blending zero over them */
   if(beamCar&&beamCar.m)for(const ch of beamCar.m.children)
@@ -3985,25 +4492,30 @@ function updateFX(dt){
   }
  }else for(const r of rips)r.m.visible=false;
 
- const night=nightAmt01;
- renderer.toneMappingExposure=lerp(1.20,1.18,night)*lerp(1,.9,wet);
- bloomPass.strength=.26+night*.38+wet*.12;
- /* a high threshold in daylight so only the sun and specular hits bloom -
-    a low one turns every pale wall into a glow and washes the city out */
- bloomPass.threshold=lerp(1.15,.88,night);
- bloomPass.radius=.7;
- const gu=gradePass.uniforms;
- gu.time.value=fxTime;
- gu.grain.value=.020+night*.044;
- /* Daylight was graded like night with the lights on: same lift, same
-    saturation. The look this is after is warm light against cool shade, so
-    the day gets a cool lift in the shadows - which is what makes the sunlit
-    faces read as warm without touching them - and more saturation to carry
-    the pastel facades. */
- gu.sat.value=1.20-night*.06-wet*.08;
- gu.con.value=1.09+night*.03;
- gu.ca.value=.0009+night*.0015;
- gu.lift.value.set(.008*night,.012*night+.006*dayAmt01,.034*night+.020*dayAmt01);
+  const night=nightAmt01;
+  /* GTA V cinematic look: slightly warm exposure in daylight, richer at dusk,
+     pulled down at night so neon and street lights carry the scene */
+  renderer.toneMappingExposure=lerp(1.22,1.16,night)*lerp(1,.88,wet);
+  /* Bloom: tight in daylight (specular only), generous at night (neon glow),
+     and a wider radius so highlights bleed softly rather than hard-edging */
+  bloomPass.strength=.22+night*.42+wet*.14;
+  bloomPass.threshold=lerp(1.20,.84,night);
+  bloomPass.radius=.82;
+  const gu=gradePass.uniforms;
+  gu.time.value=fxTime;
+  /* Film grain: barely visible in daylight, heavier at night for that
+     surveillance-camera mood that GTA nails */
+  gu.grain.value=.016+night*.048;
+  /* Daylight colour grade: warmer saturation so pastel facades and car paint
+     pop, slightly more contrast to give surfaces form. The cool shadow lift
+     is what puts blue into the shade side of a building while the sun face
+     stays warm — the classic GTA V California look. */
+  gu.sat.value=1.24-night*.08-wet*.10;
+  gu.con.value=1.10+night*.04;
+  gu.ca.value=.0007+night*.0018;
+  /* Lift: warm gold in the highlights during the day, cool blue in the
+     shadows. At night the lift switches to the neon-influenced teal/coral. */
+  gu.lift.value.set(.006*night+.003*dayAmt01,.010*night+.008*dayAmt01,.032*night+.024*dayAmt01);
  /* Fog from 200m flattened everything past a couple of blocks into haze.
     Clear daylight sees much further; rain still closes it right down. */
  scene.fog.near=lerp(lerp(150,320,dayAmt01),90,wet);
@@ -4107,6 +4619,12 @@ function applyQual(auto){
  /* ground detail normal */
  gNorm=t.gnorm;
  groundMat.normalMap=t.gnorm?groundNormalTex:null;
+ /* building relief follows the tier, and builds itself the first time a tier
+    actually asks for it */
+ applyRelief(!!t.fnorm);
+ /* AO is the most expensive pass here - a full depth-normal prepass - so it
+    is the first thing the two cheap tiers give up */
+ if(gtaoPass)gtaoPass.enabled=!!t.ao;
  /* the parked row is scenery, and on LOW it is the single biggest triangle
     bill in the world for something you never interact with */
  if(parkedMesh)parkedMesh.visible=t.parked;
@@ -4168,11 +4686,14 @@ function updatePerf(dt){
   'qual   '+TIERS[qual].n+(autoQual?' auto':' locked')+'  pr '+renderer.getPixelRatio().toFixed(2)+'\n'+
   'gpu    '+GPU_NAME;
 }
-window.__vc={renderer,scene,camera,composer,info:()=>({fps:perfFps,calls:renderer.info.render.calls,tris:renderer.info.render.triangles,tex:renderer.info.memory.textures,cars:cars.length,peds:peds.length,fx:fx.length,wet,night:nightAmt01}),explode,reap:reapCars,cars,peds,heat,commitCrime,playerLook,descMatches,gossip,player,fileReport,accountOf,
+window.__vc={renderer,scene,camera,composer,VEHICLES,info:()=>({fps:perfFps,calls:renderer.info.render.calls,tris:renderer.info.render.triangles,tex:renderer.info.memory.textures,cars:cars.length,peds:peds.length,fx:fx.length,wet,night:nightAmt01}),explode,reap:reapCars,cars,peds,heat,commitCrime,playerLook,descMatches,gossip,player,fileReport,accountOf,
  setRain:v=>{rainOn=v},setTime:v=>{dayT=v},roadMesh:()=>roadMesh,roadMat:()=>roadMat,
  /* headless test hooks - let a script drive the sim without a compositor */
  dbg:{
-  stepCar,updateFoot,updateCamera,keys,
+  stepCar,updateFoot,updateCamera,keys,makeCar,spawnTrafficCar,
+  qual:()=>({i:qual,name:TIERS[qual].n,auto:autoQual}),
+  setQual:n=>{autoQual=false;qual=Math.max(0,Math.min(TIERS.length-1,n));applyQual(false);return TIERS[qual].n},
+  reliefJobs:()=>reliefJobs.length,
   cam:()=>({yaw:camYaw,pitch:camPitch,dist:camDist,fov:camera.fov,
             pos:[camera.position.x,camera.position.y,camera.position.z]}),
   setCam:(y,p2)=>{camYaw=y;if(p2!==undefined)camPitch=p2},
@@ -4208,7 +4729,7 @@ applyQual();
    still works if they fail to load. */
 const TEXDIR='textures/';
 const texLoader=new THREE.TextureLoader();
-let texFailed=0;
+let texFailed=0,roadDayTex=null,roadNightTex=null,kerbDayTex=null,kerbNightTex=null;
 function loadTex(name,srgb=true){
  return new Promise(res=>{
   texLoader.load(TEXDIR+name,t=>{
@@ -4227,10 +4748,27 @@ function loadTex(name,srgb=true){
    building variants were visually the same as two others. The ground_v3 batch
    fills them, and swaps three more for walls that read better at street level. */
 const FACADE_FOR=[
+ /* low rise - index 0..8, must match variants[0..8] */
  'facade_deco_pastel','facade_brick_walkup','facade_stucco_pink','facade_market_arcade',
  'facade_redbrick_loft','facade_neon_motel',
+ 'facade_parking_deck','facade_terracotta','facade_walkup_signs',
+ /* towers - index 9..17 */
  'facade_tower_dark','facade_tower_concrete','facade_glass_blue',
- 'facade_artdeco_teal','facade_brutalist','facade_tower_gold'
+ 'facade_artdeco_teal','facade_brutalist','facade_tower_gold',
+ 'facade_mirror_green','facade_precast_panel','facade_corporate_steel'
+];
+/* The six newest walls were generated for daylight only, so there is no night
+   albedo and no hand-made emissive mask for them. Both are handled: the day
+   texture stands in at night, and the lit-window mask is derived. */
+const FACADE_DAY_ONLY=new Set(['facade_parking_deck','facade_terracotta',
+ 'facade_walkup_signs','facade_mirror_green','facade_precast_panel',
+ 'facade_corporate_steel']);
+/* Window grid per slot, for deriving a lit-window mask. Same numbers as the
+   procedural `variants` fallback, repeated here because that array is scoped
+   inside the building builder and this runs at module level. */
+const FACADE_GRID=[
+ [4,5],[4,4],[5,4],[4,5],[5,5],[4,6],[6,5],[5,5],[5,6],
+ [6,12],[5,10],[6,14],[5,11],[6,13],[5,9],[6,12],[5,12],[6,13]
 ];
 
 async function applyTexturePack(){
@@ -4246,57 +4784,101 @@ async function applyTexturePack(){
  const jobs=FACADE_FOR.map(async (name,i)=>{
   const m=facadeMats[i];
   if(!m)return;
-  let [alb,emi]=await Promise.all([loadTex(name+'.jpg'),loadTex(name+'_e.jpg')]);
-  if(!alb&&FACADE_FALLBACK[name]){
+  const dayOnly=FACADE_DAY_ONLY.has(name);
+  let [alb,emi,day]=await Promise.all([
+   dayOnly?Promise.resolve(null):loadTex(name+'.jpg'),
+   dayOnly?Promise.resolve(null):loadTex(name+'_e.jpg'),
+   loadTex(name+'_day.jpg')]);
+  if(!alb&&!dayOnly&&FACADE_FALLBACK[name]){
    const fb=FACADE_FALLBACK[name];
    [alb,emi]=await Promise.all([loadTex(fb+'.jpg'),loadTex(fb+'_e.jpg')]);
   }
-  if(!alb)return;
+  if(!alb&&!day)return;
+
+  /* Horizontal repeats are mirrored. These walls are not seamless left to
+     right, and cross-fading a hard window grid smears a ghost band through the
+     join that reads worse than the seam it replaces - so the join is removed
+     rather than hidden: a mirrored repeat meets itself exactly. Vertical stays
+     a plain repeat, because mirroring there would hang every other band of
+     balconies upside down; that join was closed in the texture itself, see
+     pipeline/process_facades_day.py. */
+  for(const t of [alb,day,emi]){
+   if(!t)continue;
+   t.wrapS=THREE.MirroredRepeatWrapping;
+   t.wrapT=THREE.RepeatWrapping;
+   t.needsUpdate=true;
+  }
+
+  m.userData.dayTex=day||alb;
+  m.userData.nightTex=alb||day;
   if(m.map)m.map.dispose();
-  m.map=alb;
+  m.map=m.userData.dayTex;
+
   if(emi){if(m.emissiveMap)m.emissiveMap.dispose();m.emissiveMap=emi}
+  else if(day&&day.image){
+   const g=FACADE_GRID[i]||[5,8];
+   m.emissiveMap=emissiveFromAlbedo(day.image,g[0],g[1],.42);
+  }
+  /* Relief comes off the DAY albedo wherever there is one: the night walls
+     have neon reflections baked into them, and a reflection is not relief. */
+  const relSrc=(day&&day.image)||(alb&&alb.image);
+  if(relSrc)queueRelief(m,relSrc,2.4,.85,.26,.94,1.05);
   m.needsUpdate=true;
  });
 
  /* ground: repaint the road and pavement areas with the generated tiles.
     Painting into the existing canvas keeps the whole ground at one draw call. */
  const paint=(async()=>{
-  const [aspNew,aspOld,pav,rmk,rdt]=await Promise.all([
-   loadTex('asphalt_road.jpg'),loadTex('asphalt_wet.jpg'),loadTex('pavement_wet.jpg'),
-   loadTex('road_markings.jpg'),loadTex('road_detail.jpg')]);
-  const asp=aspNew||aspOld;
-  const [grs,plz,snd,pth]=await Promise.all([
-   loadTex('grass_park.jpg'),loadTex('plaza_tile.jpg'),loadTex('sand_beach.jpg'),
+  const [aspDay,aspNight,aspOld,aspHgt,aspClean,pavDay,pavWet,rmk,rdtDay,rdt]=await Promise.all([
+   loadTex('asphalt_road_day.jpg'),loadTex('asphalt_road.jpg'),loadTex('asphalt_wet.jpg'),
+   loadTex('asphalt_height.jpg'),
+   loadTex('asphalt_clean.jpg'), /* clean dark asphalt, no embedded lane markings */
+   loadTex('pavement_day.jpg'),loadTex('pavement_wet.jpg'),
+   loadTex('road_markings.jpg'),loadTex('road_detail_day.jpg'),loadTex('road_detail.jpg')]);
+  /* Prefer the clean texture as diffuse; fall back to old ones if missing */
+  const asp=aspClean||aspDay||aspNight||aspOld;
+  const pav=pavDay||pavWet;
+  const [grsDay,grsNight,plzDay,plzNight,sndDay,sndNight,pth]=await Promise.all([
+   loadTex('grass_park_day.jpg'),loadTex('grass_park.jpg'),
+   loadTex('plaza_tile_day.jpg'),loadTex('plaza_tile.jpg'),
+   loadTex('sand_beach_day.jpg'),loadTex('sand_beach.jpg'),
    loadTex('dirt_path.jpg')]);
+  const grs=grsDay||grsNight, plz=plzDay||plzNight, snd=sndDay||sndNight;
+  const rdtUsed=rdtDay||rdt;
   if(!asp||!pav||!groundCtx)return;
-  /* the carriageway mesh gets the tile at full resolution - this is the copy
-     that actually gets seen, so it must not go through the canvas */
-  if(roadMat&&asp){
-   asp.wrapS=asp.wrapT=THREE.RepeatWrapping;
-   roadMat.map=asp;roadMat.color.setScalar(1);roadMat.needsUpdate=true;
-  }
-  /* road_detail.jpg was being fed in as a roughnessMap. It is an sRGB colour
-     photo, and three.js reads the GREEN channel as roughness - so the road's
-     effective roughness became about 0.26 instead of 0.97 and the whole
-     carriageway turned into wet plastic. It is a decal sheet, not a data map.
 
-     What the surface actually needed was relief, so the tile's own luminance
-     is turned into a tangent-space normal map instead. */
-  if(roadMat&&asp&&asp.image){
-   roadMat.roughnessMap=roughFromLuma(asp.image,.78,1.0);
-   roadMat.normalMap=normalFromHeight(asp.image,3.1);
-   roadMat.normalScale.set(1.05,1.05);
+  /* Day/night diffuse: clean texture for day, slightly darkened for night */
+  roadDayTex=aspClean||aspDay||asp;
+  roadNightTex=aspClean||aspNight||aspOld||asp;
+  kerbDayTex=pavDay||pav;
+  kerbNightTex=pavWet||pav;
+
+  /* Apply to the carriageway 3D mesh — this is what the player actually sees */
+  if(roadMat&&asp){
+   if(roadDayTex){roadDayTex.wrapS=roadDayTex.wrapT=THREE.RepeatWrapping;roadDayTex.anisotropy=renderer.capabilities.getMaxAnisotropy();}
+   if(roadNightTex){roadNightTex.wrapS=roadNightTex.wrapT=THREE.RepeatWrapping;roadNightTex.anisotropy=renderer.capabilities.getMaxAnisotropy();}
+   roadMat.map=(dayAmt01>.35&&roadDayTex)?roadDayTex:roadNightTex;
+   roadMat.color.setScalar(1);roadMat.needsUpdate=true;
+  }
+  /* Height from the original aggregate texture (more detail than clean) */
+  const hgtImg=(aspHgt&&aspHgt.image)?aspHgt.image:(asp.image||null);
+  if(roadMat&&hgtImg){
+   roadMat.roughnessMap=roughFromLuma(hgtImg,.82,1.0);
+   roadMat.normalMap=normalFromHeight(hgtImg,5.0);
+   roadMat.normalScale.set(1.5,1.5);
    roadMat.needsUpdate=true;
   }
-  /* The raised pavement slab is real geometry with UVs already scaled to tile
-     every 9 metres, but it had no map at all - every pavement in the city was
-     one flat beige. It shows more screen area than the road does on foot. */
+  /* The raised pavement slab is real geometry with UVs scaled to tile
+     every 9 metres. Gives rich street-level detail on foot and driving. */
   if(kerbMat&&pav){
-   pav.wrapS=pav.wrapT=THREE.RepeatWrapping;
-   kerbMat.map=pav;kerbMat.color.setScalar(1);
-   if(pav.image){
-    kerbMat.normalMap=normalFromHeight(pav.image,2.4);kerbMat.normalScale.set(.85,.85);
-    kerbMat.roughnessMap=roughFromLuma(pav.image,.72,.98);
+   if(kerbDayTex)kerbDayTex.wrapS=kerbDayTex.wrapT=THREE.RepeatWrapping;
+   if(kerbNightTex)kerbNightTex.wrapS=kerbNightTex.wrapT=THREE.RepeatWrapping;
+   kerbMat.map=(dayAmt01>.35&&kerbDayTex)?kerbDayTex:kerbNightTex;
+   kerbMat.color.setScalar(1);
+   const pavImg=(pavDay&&pavDay.image)?pavDay.image:(pav.image||null);
+   if(pavImg){
+    kerbMat.normalMap=normalFromHeight(pavImg,2.6);kerbMat.normalScale.set(.95,.95);
+    kerbMat.roughnessMap=roughFromLuma(pavImg,.68,.96);
    }
    kerbMat.needsUpdate=true;
   }
@@ -4316,11 +4898,17 @@ async function applyTexturePack(){
    const x1=roadC(bi)+ROAD/2+3.2,z1=roadC(bj)+ROAD/2+3.2,w=BLOCK-6.4;
    /* the block interiors were three flat fills; give them the generated
       surfaces where we have one, and keep the fill as the fallback */
-   const surf=type==='park'?grs:type==='plaza'?plz:null;
+   const surf=(type==='park'||type==='jungle')?grs:type==='plaza'?plz:null;
    if(surf){
     const ps=g.createPattern(surf.image,'repeat');
-    ps.setTransform(tileScale(type==='park'?11:8,surf.image.width));
+    ps.setTransform(tileScale(type==='park'?11:type==='jungle'?7:8,surf.image.width));
     g.save();g.fillStyle=ps;g.fillRect(W(x1),W(z1),w*s,w*s);g.restore();
+    /* the same grass tile, dropped into shade - jungle floor is lit through a
+       canopy, and reusing the park texture at park brightness made this read
+       as a lawn with trees standing on it */
+    if(type==='jungle'){
+     g.save();g.fillStyle='rgba(16,34,14,.52)';g.fillRect(W(x1),W(z1),w*s,w*s);g.restore();
+    }
    }else{
     g.fillStyle=type==='plaza'?'#6f6b66':'#4e4b48';
     g.fillRect(W(x1),W(z1),w*s,w*s);
@@ -4362,22 +4950,12 @@ async function applyTexturePack(){
    g.fillStyle=pa;
    g.fillRect(W(-CITY/2),W(roadC(i)-8),CITY*s,ROAD*s);
    g.fillRect(W(roadC(i)-8),W(-CITY/2),ROAD*s,CITY*s);
-   /* lane paint over the top, at a different tile size so the two do not
-      visibly repeat in lockstep */
-   if(rmk){
-    const pm=g.createPattern(rmk.image,'repeat');
-    pm.setTransform(tileScale(14,rmk.image.width));
-    g.globalAlpha=.5;g.fillStyle=pm;
-    g.fillRect(W(-CITY/2),W(roadC(i)-8),CITY*s,ROAD*s);
-    g.fillRect(W(roadC(i)-8),W(-CITY/2),ROAD*s,CITY*s);
-    g.globalAlpha=1;
-   }
   }
   /* crossings, manholes and tarmac patches scattered at junctions - real
      roads are not one clean surface */
-  if(rdt){
-   const pd=g.createPattern(rdt.image,'repeat');
-   pd.setTransform(tileScale(11,rdt.image.width));
+  if(rdtUsed){
+   const pd=g.createPattern(rdtUsed.image,'repeat');
+   pd.setTransform(tileScale(11,rdtUsed.image.width));
    g.globalAlpha=.62;g.fillStyle=pd;
    for(let i=0;i<=BLOCKS;i++)for(let j=0;j<=BLOCKS;j++){
     const cx=roadC(i),cz=roadC(j);
@@ -4385,7 +4963,6 @@ async function applyTexturePack(){
    }
    g.globalAlpha=1;
   }
-  if(kerbMat){kerbMat.map=pav;kerbMat.color.setHex(0xffffff);kerbMat.needsUpdate=true}
   if(groundTex)groundTex.needsUpdate=true;
  })();
 
@@ -4405,6 +4982,10 @@ async function applyTexturePack(){
    if(!alb)return;
    m.map=alb;m.color.setHex(0xffffff);
    if(emi)m.emissiveMap=emi;
+   /* Pushed harder than the facades: a shopfront is the one surface the
+      player stands right against, and its tile has deeper features to work
+      with - door reveals, window frames, awnings. */
+   if(alb.image)queueRelief(m,alb.image,3.1,1.0,.22,.92,1.15);
    m.needsUpdate=true;
   }));
  })();
@@ -4425,6 +5006,10 @@ async function applyTexturePack(){
  })();
 
  await Promise.all([...jobs,paint,signs,bands]);
+ /* The relief maps are derived from the albedos these jobs just fetched, so
+    this is the first moment they can be built. applyQual() takes over from
+    here whenever the tier moves. */
+ applyRelief(!!TIERS[qual].fnorm);
  if(texFailed){
   /* file:// blocks these, which used to fail silently and leave the city white */
   const why=location.protocol==='file:'
@@ -4872,11 +5457,17 @@ const CAR_LEN=4.5;
    hatchback. Every axis is now pinned to a real vehicle's dimensions, which
    is most of what stops them reading as lumps. */
 const CAR_DIMS={
- car_sedan :{l:4.72,w:1.86,h:1.45,r:.33},
- car_coupe :{l:4.42,w:1.90,h:1.31,r:.33},
- car_van   :{l:5.10,w:2.02,h:2.14,r:.36},
- car_pickup:{l:5.32,w:1.98,h:1.80,r:.39},
- car_police:{l:4.86,w:1.90,h:1.48,r:.34}
+ car_sedan   :{l:4.72,w:1.86,h:1.45,r:.33},
+ car_coupe   :{l:4.42,w:1.90,h:1.31,r:.33},
+ car_van     :{l:5.10,w:2.02,h:2.14,r:.36},
+ car_pickup  :{l:5.32,w:1.98,h:1.80,r:.39},
+ car_police  :{l:4.86,w:1.90,h:1.48,r:.34},
+ /* Trellis high-poly models */
+ car_hatchback:{l:4.05,w:1.76,h:1.50,r:.32},
+ car_muscle  :{l:4.90,w:1.96,h:1.36,r:.35},
+ car_sport   :{l:4.40,w:1.94,h:1.28,r:.33},
+ car_suv     :{l:4.75,w:1.98,h:1.76,r:.38},
+ car_taxi    :{l:4.82,w:1.88,h:1.52,r:.33}
 };
 const gltfLoader=new GLTFLoader();
 function loadMesh(name){
@@ -4902,6 +5493,426 @@ function loadMesh(name){
    res(out);
   },undefined,()=>res(null));
  });
+}
+
+/* ================= MODELLED CARS =================
+   Two real modelled vehicles, as opposed to the generated ones: a 2005 Audi
+   and an e-tron GT, both Sketchfab FBX conversions (see CREDITS.txt).
+
+   Unlike a TRELLIS shell these ship their wheels as their own named nodes,
+   which is the whole reason they are worth wiring up separately - no carving,
+   no guessing where the hubs are, just read the transform the modeller set.
+
+   The catch is that node names are the only thing distinguishing a wheel from
+   the underbody, and they are not clean. The Audi's floor pan is a mesh called
+   `Bottom_Interior_CAR_Bottom_Interior_Wheel_0` - it matches /wheel/ and is
+   not a wheel. So the search starts at the mesh's PARENT, not the mesh, and
+   gives up the moment it passes a node that names itself body or interior. */
+const NAMED_CARS=[
+ {file:'car_audi_a4', name:'Audi',   spec:{l:4.55,w:1.77,h:1.43,grip:9.4, pw:9.8, max:43}},
+ {file:'car_etron_gt',name:'e-tron', spec:{l:4.99,w:1.96,h:1.39,grip:10.8,pw:13.2,max:48}}
+];
+const WHEEL_NODE=/wheel|tyre|tire|rotor|caliper|brake|disc/i;
+/* `lights` earns its place: the e-tron names its brake LIGHTS
+   LOD_A_BRAKES_LEFT/RIGHT, which matches /brake/ and is a lamp at the back of
+   the car spanning its full width. Clustered as wheel parts they dragged both
+   rear hubs off-centre and doubled their radius. This list is tested first, so
+   a node that says it is a lamp is never read as a wheel. */
+const NOT_WHEEL_NODE=/bottom|interior|^body$|glass|window|chassis|floor|lights|lamp|emiss|signal/i;
+
+/* mergeG() flattens everything into one material. These cars carry paint,
+   glass, lights and rubber as separate materials and lose most of what makes
+   them look modelled if that distinction is thrown away, so this keeps one
+   geometry group per material instead. */
+function mergeByMaterial(parts){
+ const order=[],byMat=new Map();
+ for(const p of parts){
+  if(!byMat.has(p.mat)){byMat.set(p.mat,[]);order.push(p.mat)}
+  byMat.get(p.mat).push(p.geo);
+ }
+ const pos=[],nrm=[],uv=[],groups=[];
+ let start=0;
+ order.forEach((mat,mi)=>{
+  let n=0;
+  for(const g of byMat.get(mat)){
+   const P=g.attributes.position.array, N=g.attributes.normal.array, U=g.attributes.uv.array;
+   for(let i=0;i<P.length;i++)pos.push(P[i]);
+   for(let i=0;i<N.length;i++)nrm.push(N[i]);
+   for(let i=0;i<U.length;i++)uv.push(U[i]);
+   n+=g.attributes.position.count;
+  }
+  if(n){groups.push({start,count:n,mi});start+=n}
+ });
+ const geo=new THREE.BufferGeometry();
+ geo.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));
+ geo.setAttribute('normal',new THREE.Float32BufferAttribute(nrm,3));
+ geo.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));
+ geo.clearGroups();
+ for(const g of groups)geo.addGroup(g.start,g.count,g.mi);
+ return {geo,mats:order};
+}
+
+function loadNamedCar(entry){
+ return new Promise(res=>{
+  gltfLoader.load('meshes/'+entry.file+'.glb',gltf=>{
+   gltf.scene.updateMatrixWorld(true);
+   const body=[],wheel=[];
+   gltf.scene.traverse(o=>{
+    if(!o.isMesh||!o.geometry||!o.geometry.attributes.position)return;
+    let isWheel=false;
+    for(let n=o.parent;n;n=n.parent){
+     const nm=n.name||'';
+     if(NOT_WHEEL_NODE.test(nm))break;
+     if(WHEEL_NODE.test(nm)){isWheel=true;break}
+    }
+    let g=o.geometry.clone();
+    if(g.index)g=g.toNonIndexed();
+    if(!g.attributes.normal)g.computeVertexNormals();
+    /* a merge that reads .uv.array cannot tolerate a mesh without one */
+    if(!g.attributes.uv)
+     g.setAttribute('uv',new THREE.Float32BufferAttribute(new Float32Array(g.attributes.position.count*2),2));
+    g.applyMatrix4(o.matrixWorld);      /* bake the whole node chain in */
+    const mat=Array.isArray(o.material)?o.material[0]:o.material;
+    (isWheel?wheel:body).push({geo:g,mat});
+   });
+   if(!body.length)return res(null);
+
+   const all=()=>{
+    const bb=new THREE.Box3();
+    for(const p of body.concat(wheel)){p.geo.computeBoundingBox();bb.union(p.geo.boundingBox)}
+    return bb;
+   };
+   const xform=m=>{for(const p of body.concat(wheel))p.geo.applyMatrix4(m)};
+
+   let bb=all(), size=bb.getSize(new THREE.Vector3());
+   /* the game drives along +Z */
+   if(size.x>size.z){xform(new THREE.Matrix4().makeRotationY(Math.PI/2));bb=all();size=bb.getSize(new THREE.Vector3())}
+
+   /* uniform scale from length - these are modelled in proportion, so pinning
+      every axis would only shear them */
+   const sp=entry.spec;
+   const k=sp.l/Math.max(size.z,1e-6);
+   xform(new THREE.Matrix4().makeScale(k,k,k));
+   bb=all();
+   const ctr=bb.getCenter(new THREE.Vector3());
+   xform(new THREE.Matrix4().makeTranslation(-ctr.x,-bb.min.y,-ctr.z));
+   bb=all();
+   const fin=bb.getSize(new THREE.Vector3());
+
+   /* four hubs, by quadrant */
+   const quad=[[],[],[],[]];
+   for(const p of wheel){
+    p.geo.computeBoundingBox();
+    const c=p.geo.boundingBox.getCenter(new THREE.Vector3());
+    quad[(c.x<0?0:1)+(c.z<0?0:2)].push(p);
+   }
+   const wheels=[];
+   for(const q of quad){
+    if(!q.length)continue;
+    const wb=new THREE.Box3();
+    for(const p of q){p.geo.computeBoundingBox();wb.union(p.geo.boundingBox)}
+    const c=wb.getCenter(new THREE.Vector3()), ws=wb.getSize(new THREE.Vector3());
+    const m=mergeByMaterial(q.map(p=>({geo:p.geo.clone().translate(-c.x,-c.y,-c.z),mat:p.mat})));
+    wheels.push({geo:m.geo,mats:m.mats,x:c.x,y:c.y,z:c.z,r:Math.max(ws.y,ws.z)/2,front:c.z>0});
+   }
+   /* front pair first - stepCar() steers wheels[0] and wheels[1] */
+   wheels.sort((a,b)=>(b.front?1:0)-(a.front?1:0));
+
+   const bm=mergeByMaterial(body);
+   /* Sketchfab exports land flat and matte. Paint wants some environment in
+      it; glass wants a lot and the rest wants a little. */
+   for(const mt of bm.mats.concat(...wheels.map(w=>w.mats))){
+    if(!mt)continue;
+    mt.envMapIntensity=/glass|window/i.test(mt.name||'')?1.6:1.1;
+    if(mt.isMeshStandardMaterial&&mt.metalness===0&&mt.roughness>=.6)mt.roughness=.45;
+    mt.needsUpdate=true;
+   }
+
+   res({geo:bm.geo,mats:bm.mats,wheels,
+        dims:{l:fin.z,w:fin.x,h:fin.y,r:wheels.length?wheels[0].r:.33},
+        spec:sp});
+  },undefined,()=>res(null));
+ });
+}
+
+async function applyNamedCars(){
+ if(!VEHICLES.length)return 0;
+ const donor=VEHICLES.find(v=>v.geoLow)||VEHICLES[0];
+ if(!donor||!donor.geoLow)return 0;
+ let got=0;
+ const loaded=await Promise.all(NAMED_CARS.map(async e=>{
+  if(VEHICLES.find(v=>v.name===e.name))return null;
+  const r=await loadNamedCar(e);
+  return r?{e,r}:null;
+ }));
+ for(const it of loaded){
+  if(!it)continue;
+  const {e,r}=it;
+  VEHICLES.push({
+   name:e.name, pack:false, generated:true, named:true,
+   geoBody:r.geo, geoHi:r.geo, bodyMats:r.mats,
+   namedWheels:r.wheels,
+   wheelSpec:r.wheels.map(q=>({x:q.x,y:q.y,z:q.z,r:q.r})),
+   dims:r.dims, wheelR:r.dims.r, handling:r.spec,
+   geoLow:donor.geoLow, geoCabLow:donor.geoCabLow, geoCab:donor.geoCab,
+   geoWheel:donor.geoWheel, geoLampF:null, geoLampR:null,
+   wheel:r.dims.r, axle:r.dims.l*.34
+  });
+  got++;
+ }
+ return got;
+}
+
+/* ================= TRELLIS VEHICLES =================
+   A different kind of asset from the Hunyuan shells above, and the reason the
+   five of them never appeared in traffic.
+
+   Two separate faults. First, applyVehicleMeshes() - the only thing that ever
+   referenced them - is the FALLBACK for applyCarPack(). The pack loads fine,
+   so that function has never once run and the files were dead weight on disk.
+
+   Second, it would not have helped if it had. TRELLIS ships a UV-unwrapped
+   mesh with baked PBR textures; loadMesh() exists to invent a surface for a
+   bare shape that has neither, so it takes the geometry, throws the material
+   away and repaints the car in flat body colour. Everything that makes a
+   TRELLIS model worth generating was being discarded on load. That is the
+   "looks bad and chopped" - not the decimation.
+
+   So these get their own loader that keeps the baked material and only
+   corrects the transform. */
+/* Cut the four wheel masses out of a TRELLIS shell and hand them back as
+   their own geometry, re-centred on their hubs so they can be spun.
+
+   carveWheels() - the Hunyuan path - locates the same masses but throws the
+   triangles away and builds clean cylinders in the hole, because a diffusion
+   shell's "wheel" is a lump with no detail worth keeping. A TRELLIS wheel is
+   the opposite: it is modelled, and it carries the baked tread and rim in the
+   same texture as the body. So the triangles are kept and only re-parented.
+
+   Everything here runs on the already-scaled, grounded geometry, so the
+   numbers are real metres and the hub height is simply the tyre radius. */
+function splitTrellisWheels(geo,D){
+ const pos=geo.attributes.position, uv=geo.attributes.uv, nrm=geo.attributes.normal;
+ const tri=pos.count/3;
+ geo.computeBoundingBox();
+ const bb=geo.boundingBox;
+ const w=bb.max.x-bb.min.x, h=bb.max.y-bb.min.y, l=bb.max.z-bb.min.z;
+
+ /* centroids once - this loop runs five times per page load, not per frame,
+    but it is 25k triangles a car and the naive version showed up in profiles */
+ const C=new Float32Array(tri*3);
+ for(let t=0;t<tri;t++){
+  let cx=0,cy=0,cz=0;
+  for(let k=0;k<3;k++){const i=t*3+k;cx+=pos.getX(i);cy+=pos.getY(i);cz+=pos.getZ(i)}
+  C[t*3]=cx/3;C[t*3+1]=cy/3;C[t*3+2]=cz/3;
+ }
+
+ /* Pass 1 - vote for hub centres. Only low outboard triangles in the front and
+    rear thirds get a say, because that is tyre and very little else. */
+ const acc=[0,1,2,3].map(()=>({sz:0,ax:0,n:0,minY:1e9,maxY:-1e9}));
+ for(let t=0;t<tri;t++){
+  const cx=C[t*3],cy=C[t*3+1],cz=C[t*3+2];
+  const fy=(cy-bb.min.y)/h, fx=Math.abs(cx)/(w*.5), fz=(cz-bb.min.z)/l;
+  if(fy>.42||fx<.46)continue;
+  if(fz>.34&&fz<.66)continue;
+  const a=acc[(cx<0?0:1)+(cz<0?0:2)];
+  a.sz+=cz;a.ax=Math.max(a.ax,Math.abs(cx));a.n++;
+  a.minY=Math.min(a.minY,cy);a.maxY=Math.max(a.maxY,cy);
+ }
+ if(!acc.every(a=>a.n>25))return null;   /* not a recognisable four-wheeler */
+
+ /* Symmetric pairs. A generated mesh is never quite square, and letting each
+    wheel keep its own x/z put one tyre visibly ahead of the other. */
+ const zR=(acc[0].sz/acc[0].n+acc[1].sz/acc[1].n)/2;
+ const zF=(acc[2].sz/acc[2].n+acc[3].sz/acc[3].n)/2;
+ /* sit the hub just inside the widest point of the tyre, not 6% in - pulling
+    it inboard buried the rim face in the arch */
+ const xo=Math.min((acc[0].ax+acc[1].ax+acc[2].ax+acc[3].ax)/4, w*.5-.02);
+ /* radius from how tall the tyre mass actually is, clamped to something sane */
+ const spanY=Math.max(acc[0].maxY-bb.min.y,acc[2].maxY-bb.min.y);
+ const R=Math.max(.26,Math.min(.46,spanY*.52||D.r));
+
+ /* front pair first - stepCar() steers wheels[0] and wheels[1] */
+ const hubs=[
+  {x: xo,z:zF,r:R,front:true},{x:-xo,z:zF,r:R,front:true},
+  {x: xo,z:zR,r:R,front:false},{x:-xo,z:zR,r:R,front:false}
+ ];
+
+ /* Pass 2 - assign each triangle to a hub, or to the body. The test is a disc
+    in the YZ plane around the hub, not a box: a box test here swallows a third
+    of the sill and the lower door, which is exactly the "chopped" look. */
+ const own=new Int8Array(tri).fill(-1);
+ for(let t=0;t<tri;t++){
+  const cx=C[t*3],cy=C[t*3+1],cz=C[t*3+2];
+  /* Outboard only. At .32 the disc also swallowed the inner wheel well and a
+     strip of underbody - roughly half of each "wheel" was car floor, which
+     then span with the tyre. .62 keeps the tread and rim face and leaves the
+     arch interior where it belongs, on the body. */
+  if(Math.abs(cx)/(w*.5)<.62)continue;
+  const side=cx<0?-1:1;
+  for(let q=0;q<4;q++){
+   const hb=hubs[q];
+   if((hb.x<0?-1:1)!==side)continue;
+   const dy=cy-(bb.min.y+hb.r), dz=cz-hb.z;
+   if(dy*dy+dz*dz<hb.r*hb.r*1.18){own[t]=q;break}
+  }
+ }
+
+ const build=(list,ox,oy,oz)=>{
+  const P=new Float32Array(list.length*9),N=new Float32Array(list.length*9);
+  const U=uv?new Float32Array(list.length*6):null;
+  list.forEach((t,i)=>{
+   for(let k=0;k<3;k++){
+    const src=t*3+k,dst=i*3+k;
+    P[dst*3]=pos.getX(src)-ox;P[dst*3+1]=pos.getY(src)-oy;P[dst*3+2]=pos.getZ(src)-oz;
+    N[dst*3]=nrm.getX(src);N[dst*3+1]=nrm.getY(src);N[dst*3+2]=nrm.getZ(src);
+    if(U){U[dst*2]=uv.getX(src);U[dst*2+1]=uv.getY(src)}
+   }
+  });
+  const out=new THREE.BufferGeometry();
+  out.setAttribute('position',new THREE.Float32BufferAttribute(P,3));
+  out.setAttribute('normal',new THREE.Float32BufferAttribute(N,3));
+  if(U)out.setAttribute('uv',new THREE.Float32BufferAttribute(U,2));
+  return out;
+ };
+
+ const groups=[[],[],[],[]],bodyTris=[];
+ for(let t=0;t<tri;t++)(own[t]<0?bodyTris:groups[own[t]]).push(t);
+ /* a wheel that came out as a handful of stray triangles is a mis-detection;
+    bail rather than ship a car with one tyre hanging off it */
+ if(groups.some(g=>g.length<60))return null;
+
+ return {
+  body:build(bodyTris,0,0,0),
+  wheels:hubs.map((hb,q)=>({
+   geo:build(groups[q],hb.x,bb.min.y+hb.r,hb.z),
+   x:hb.x,y:bb.min.y+hb.r,z:hb.z,r:hb.r,front:hb.front
+  }))
+ };
+}
+
+function loadTrellisCar(name){
+ return new Promise(res=>{
+  gltfLoader.load('meshes/'+name+'.glb',g=>{
+   let src=null;
+   g.scene.traverse(o=>{if(!src&&o.isMesh)src=o});
+   if(!src||!src.geometry)return res(null);
+   let geo=src.geometry.clone();
+   if(geo.index)geo=geo.toNonIndexed();
+
+   /* TRELLIS has no fixed output orientation. Four of the five come out
+      lengthways on Z, car_sport comes out on X - and pinning X to width on
+      that one squashed a 4.4m car down to 1.9m while stretching its width out
+      to 4.4m. The pack loader already corrects for this; loadMesh() never did. */
+   geo.computeBoundingBox();
+   let size=geo.boundingBox.getSize(new THREE.Vector3());
+   if(size.x>size.z){
+    geo.rotateY(Math.PI/2);
+    geo.computeBoundingBox();
+    size=geo.boundingBox.getSize(new THREE.Vector3());
+   }
+
+   /* Uniform scale, driven by length alone. Pinning all three axes is right
+      for a diffusion shell whose proportions are guesswork and wrong here: it
+      skews a mesh that was modelled in proportion, and a skewed surface under
+      a baked normal map is a large part of what reads as plastic. */
+   const D=CAR_DIMS[name]||{l:CAR_LEN,w:1.88,h:1.46,r:.33};
+   const k=D.l/Math.max(size.z,1e-6);
+   geo.scale(k,k,k);
+   geo.computeBoundingBox();
+
+   /* TRELLIS draws cars chubby: uniform scaling left these 2.03-2.23m across,
+      where a real one is 1.76-1.98. A partial squeeze pulls them back toward
+      the spec without returning to the full non-uniform pin - capped at 12%,
+      which is under the threshold where the baked normals start to shear. */
+   {
+    const sz=geo.boundingBox.getSize(new THREE.Vector3());
+    const sx=Math.max(.88,Math.min(1,D.w/Math.max(sz.x,1e-6)));
+    const sy=Math.max(.88,Math.min(1,D.h/Math.max(sz.y,1e-6)));
+    if(sx<1||sy<1){geo.scale(sx,sy,1);geo.computeBoundingBox()}
+   }
+
+   let bb=geo.boundingBox;
+   geo.translate(-(bb.max.x+bb.min.x)/2,-bb.min.y,-(bb.max.z+bb.min.z)/2);
+   geo.computeBoundingBox();
+   const fin=geo.boundingBox.getSize(new THREE.Vector3());
+
+   /* The baked maps are authored in sRGB but a GLB can arrive with the flag
+      unset depending on how it was exported; being explicit costs nothing.
+      Clearcoat on top is what turns a flat photographic bake into car paint. */
+   const sm=src.material;
+   const base=(sm&&sm.map)||null;
+   if(base)base.colorSpace=THREE.SRGBColorSpace;
+   const mat=new THREE.MeshPhysicalMaterial({
+    map:base,
+    normalMap:(sm&&sm.normalMap)||null,
+    roughnessMap:(sm&&sm.roughnessMap)||null,
+    metalnessMap:(sm&&sm.metalnessMap)||null,
+    aoMap:(sm&&sm.aoMap)||null,
+    color:0xffffff,
+    roughness:sm&&sm.roughnessMap?1:.42,
+    metalness:sm&&sm.metalnessMap?1:.05,
+    envMapIntensity:1.15,
+    clearcoat:.55,clearcoatRoughness:.16
+   });
+
+   const dims={l:fin.z,w:fin.x,h:fin.y,r:D.r};
+   /* Split succeeds or it does not; a car whose wheels could not be found
+      falls back to the whole shell with its tyres baked in, which is still a
+      perfectly good static car. */
+   const split=splitTrellisWheels(geo,D);
+   if(split)dims.r=split.wheels[0].r;
+   res({geo:split?split.body:geo, wheels:split?split.wheels:null, mat, dims});
+  },undefined,()=>res(null));
+ });
+}
+
+/* Register the TRELLIS models as extra entries in VEHICLES so pick() puts them
+   into traffic like any other body style. Runs after the pack either way, so
+   it can borrow the pack's 200-triangle silhouette for distance and parked
+   rows rather than paying 20k triangles for a car you can barely see. */
+/* Labels must not collide with PACK_SPEC's. Three of them did - Hatchback,
+   Sport and SUV are all pack body styles - and the "already registered" guard
+   then skipped exactly those three TRELLIS models without a word. */
+const TRELLIS_CARS=[
+ ['car_hatchback','Supermini'],
+ ['car_muscle','Muscle'],
+ ['car_sport','GT'],
+ ['car_suv','Crossover'],
+ ['car_taxi','Cab']
+];
+async function applyTrellisCars(){
+ if(!VEHICLES.length)return 0;
+ const donor=VEHICLES.find(v=>v.geoLow)||VEHICLES[0];
+ if(!donor||!donor.geoLow)return 0;
+ let got=0;
+ const loaded=await Promise.all(TRELLIS_CARS.map(async([file,label])=>{
+  if(VEHICLES.find(v=>v.name===label))return null;
+  const r=await loadTrellisCar(file);
+  return r?{label,r}:null;
+ }));
+ for(const item of loaded){
+  if(!item)continue;
+  const {label,r}=item;
+  VEHICLES.push({
+   name:label, pack:false, generated:true, trellis:true,
+   geoBody:r.geo, geoHi:r.geo,
+   /* the baked material IS the car - makeCar must not repaint it */
+   trellisMat:r.mat,
+   dims:r.dims, wheelR:r.dims.r,
+   /* Cut out of the shell and re-centred on their hubs, so they spin and keep
+      the tread and rim from the same bake as the body. Null if the split could
+      not find four wheels, in which case the tyres stay part of the body. */
+   trellisWheels:r.wheels,
+   wheelSpec:r.wheels?r.wheels.map(q=>({x:q.x,y:q.y,z:q.z,r:q.r})):null,
+   /* distance + parked fallback, borrowed rather than generated */
+   geoLow:donor.geoLow, geoCabLow:donor.geoCabLow, geoCab:donor.geoCab,
+   geoWheel:donor.geoWheel, geoLampF:null, geoLampR:null,
+   wheel:r.dims.r, axle:r.dims.l*.34
+  });
+  got++;
+ }
+ return got;
 }
 
 /* The generated shells arrive as ONE closed lump with the wheels modelled into
@@ -4968,16 +5979,23 @@ function carveWheels(geo,D){
  for(let t=0;t<tri;t++)if(!mark[t])keep.push(t);
  const P=new Float32Array(keep.length*9),N=new Float32Array(keep.length*9);
  const nrm=g.attributes.normal;
+ /* Keep the UVs. Dropping them here is silent on a Hunyuan shell, which never
+    had any, and fatal on anything that arrives textured: the surviving
+    triangles lose their mapping and the baked material has nothing to sample. */
+ const uvA=g.attributes.uv;
+ const U=uvA?new Float32Array(keep.length*6):null;
  keep.forEach((t,i)=>{
   for(let k=0;k<3;k++){
    const src=t*3+k,dst=i*3+k;
    P[dst*3]=pos.getX(src);P[dst*3+1]=pos.getY(src);P[dst*3+2]=pos.getZ(src);
    N[dst*3]=nrm.getX(src);N[dst*3+1]=nrm.getY(src);N[dst*3+2]=nrm.getZ(src);
+   if(U){U[dst*2]=uvA.getX(src);U[dst*2+1]=uvA.getY(src)}
   }
  });
  const out=new THREE.BufferGeometry();
  out.setAttribute('position',new THREE.Float32BufferAttribute(P,3));
  out.setAttribute('normal',new THREE.Float32BufferAttribute(N,3));
+ if(U)out.setAttribute('uv',new THREE.Float32BufferAttribute(U,2));
  out.userData.wheelSpec=wheels;
  out.userData.carvedPct=Math.round(100*(tri-keep.length)/tri);
  return out;
@@ -5002,8 +6020,8 @@ function splitCarMaterials(geo){
   }
   cy/=3;cx/=3;cz/=3;ny/=3;
   const fy=(cy-bb.min.y)/h, fx=Math.abs(cx)/(w*.5), fz=(cz-bb.min.z)/l;
-  if(fy>.56&&fx<.93&&fz>.14&&fz<.88&&ny<.86) bucket[t]=1;      /* glasshouse sides + screens */
-  else if(fy<.20) bucket[t]=2;                                  /* sills, bumper valance, tyres */
+  if(fy>.64&&fx<.88&&fz>.18&&fz<.82&&ny<.82) bucket[t]=1;      /* glasshouse windows only */
+  else if(fy<.18) bucket[t]=2;                                  /* sills, bumper valance, tyres */
  }
  /* rebuild the index so each material owns a contiguous run */
  const order=[[],[],[]];
@@ -5055,6 +6073,14 @@ function updateCarLOD(){
    /* one material either way - the pack's paint already carries its own map,
       and the low silhouette is the same paint on cruder geometry */
    body.material=packPaintFor(V,c.type==='cop'?'#e9edf2':(c.color||'#c8c8c8'));
+  }else if(V.named){
+   /* near: the modelled material set. far: the borrowed silhouette, which has
+      neither the groups nor the UVs those materials need. */
+   body.material=near?V.bodyMats:(bodyMats[c.color]||copBodyMat);
+  }else if(V.trellis){
+   /* Near, the baked texture. Far, the borrowed silhouette has no UVs for it
+      to sample, so fall back to flat paint - which is all that reads at 95m. */
+   body.material=near?V.trellisMat:(bodyMats[c.color]||copBodyMat);
   }else{
    body.material=near?(c.type==='cop'?[copBodyMat,carGlassMat,carTrimMat]
                                      :[bodyMats[c.color]||copBodyMat,carGlassMat,carTrimMat])
@@ -5170,16 +6196,14 @@ function bakeRoles(node,correction){
  });
  return out;
 }
-
 let packGlassMat=null,packReady=false;
 const packMatCache={};
 function packPaintFor(V,color){
  const k=V.name+'|'+color;
  if(packMatCache[k])return packMatCache[k];
- /* The pack ships paint as white with a detail map at roughness 1 metalness 1
-    - fully rough metal, which renders like dull lead. Paint is a dielectric:
-    keep the map, correct the response, tint through the base colour. */
- const m=new THREE.MeshStandardMaterial({color,roughness:.18,metalness:.28,envMapIntensity:1.85});
+ /* Clearcoat paint for pack vehicles: rich, glossy automotive paint */
+ const m=new THREE.MeshPhysicalMaterial({color,roughness:.22,metalness:.18,envMapIntensity:1.20,
+   clearcoat:.65,clearcoatRoughness:.10});
  if(V.paintSrc&&V.paintSrc.map)m.map=V.paintSrc.map;
  return packMatCache[k]=m;
 }
@@ -5203,11 +6227,9 @@ async function applyCarPack(){
  }
  if(!bodies.length)return false;
 
- /* Opaque privacy glass. There is nobody modelled in the driving seat, so
-    see-through windows read as a ghost at the wheel. Solid and glossy also
-    means no transparent sort pass and no blending for any car in the city. */
- packGlassMat=new THREE.MeshStandardMaterial({color:0x05070a,roughness:.05,metalness:.65,
-  envMapIntensity:2.4});
+ /* Opaque privacy glass: balanced tint and reflections without night glare */
+ packGlassMat=new THREE.MeshPhysicalMaterial({color:0x0a1018,roughness:.10,metalness:.10,
+  envMapIntensity:1.20,clearcoat:.50,clearcoatRoughness:.12,reflectivity:.75,ior:1.48});
 
  const built=[];
  for(const b of bodies){
@@ -5463,22 +6485,24 @@ function updateParked(){
 }
 
 async function applyVehicleMeshes(){
- const map=[['saloon','car_sedan'],['coupe','car_coupe'],['van','car_van'],['pickup','car_pickup']];
+ const map=[
+  ['saloon','car_sedan'],['coupe','car_coupe'],['van','car_van'],['pickup','car_pickup']
+ ];
  let got=0;
  await Promise.all(map.map(async ([kind,file])=>{
   const geo=await loadMesh(file);
   if(!geo)return;
   const V=VEHICLES.find(v=>v.name===kind);
   if(!V)return;
-  V.geoBody=geo;
-  V.geoHi=geo;
-  V.generated=true;     /* one shell: no separate cabin */
+  V.geoBody=geo;V.geoHi=geo;V.generated=true;
   V.wheelSpec=geo.userData.wheelSpec||null;
   V.dims=geo.userData.dims||null;
   got++;
  }));
  const cop=await loadMesh('car_police');
  if(cop){VEHICLES[0].geoCop=cop}
+
+
  if(!got)return;
 
  /* rebuild every car already in the world, keeping its state */
@@ -5519,12 +6543,14 @@ async function applyVehicleMeshes(){
    fallback for when the file is missing, so the game still runs without it. */
 (async()=>{
  const ok=await applyCarPack();
- if(ok){
-  rebuildAllCars();
-  toast(VEHICLES.length+' vehicles loaded','cash');
- }else{
-  applyVehicleMeshes();
- }
+ if(!ok)await applyVehicleMeshes();
+ /* Unconditional. Hanging the TRELLIS cars off the pack's failure branch is
+    why they were never in the game: the pack has never failed. */
+ const tn=await applyTrellisCars();
+ const nn=await applyNamedCars();
+ rebuildAllCars();
+ toast(VEHICLES.length+' vehicles loaded'
+   +(tn?' (+'+tn+' TRELLIS)':'')+(nn?' (+'+nn+' modelled)':''),'cash');
 })();
 applyCharacters();
 loadRadio();
