@@ -1,0 +1,158 @@
+{
+ "runs": [
+  {
+   "id": "facade_tower_concrete",
+   "cost": null,
+   "w": 512,
+   "h": 1024,
+   "model": "runware:400@2",
+   "file": "facade_tower_concrete_day.png"
+  },
+  {
+   "id": "facade_tower_concrete",
+   "cost": 0.00078,
+   "w": 512,
+   "h": 1024,
+   "model": "runware:400@2",
+   "file": "facade_tower_concrete_day.png"
+  },
+  {
+   "id": "facade_deco_pastel",
+   "cost": 0.00078,
+   "w": 1024,
+   "h": 1024,
+   "model": "runware:400@2",
+   "file": "facade_deco_pastel_day.png"
+  },
+  {
+   "id": "facade_brick_walkup",
+   "cost": 0.00169,
+   "w": 1024,
+   "h": 1024,
+   "model": "runware:400@2",
+   "file": "facade_brick_walkup_day.png"
+  },
+  {
+   "id": "facade_stucco_pink",
+   "cost": 0.00169,
+   "w": 1024,
+   "h": 1024,
+   "model": "runware:400@2",
+   "file": "facade_stucco_pink_day.png"
+  },
+  {
+   "id": "facade_market_arcade",
+   "cost": 0.00169,
+   "w": 1024,
+   "h": 1024,
+   "model": "runware:400@2",
+   "file": "facade_market_arcade_day.png"
+  },
+  {
+   "id": "facade_redbrick_loft",
+   "cost": 0.00078,
+   "w": 1024,
+   "h": 1024,
+   "model": "runware:400@2",
+   "file": "facade_redbrick_loft_day.png"
+  },
+  {
+   "id": "facade_neon_motel",
+   "cost": 0.00169,
+   "w": 1024,
+   "h": 1024,
+   "model": "runware:400@2",
+   "file": "facade_neon_motel_day.png"
+  },
+  {
+   "id": "facade_parking_deck",
+   "cost": 0.00078,
+   "w": 1024,
+   "h": 1024,
+   "model": "runware:400@2",
+   "file": "facade_parking_deck_day.png"
+  },
+  {
+   "id": "facade_terracotta",
+   "cost": 0.00169,
+   "w": 1024,
+   "h": 1024,
+   "model": "runware:400@2",
+   "file": "facade_terracotta_day.png"
+  },
+  {
+   "id": "facade_walkup_signs",
+   "cost": 0.00078,
+   "w": 1024,
+   "h": 1024,
+   "model": "runware:400@2",
+   "file": "facade_walkup_signs_day.png"
+  },
+  {
+   "id": "facade_tower_dark",
+   "cost": 0.00078,
+   "w": 512,
+   "h": 1024,
+   "model": "runware:400@2",
+   "file": "facade_tower_dark_day.png"
+  },
+  {
+   "id": "facade_glass_blue",
+   "cost": 0.00078,
+   "w": 512,
+   "h": 1024,
+   "model": "runware:400@2",
+   "file": "facade_glass_blue_day.png"
+  },
+  {
+   "id": "facade_artdeco_teal",
+   "cost": 0.00078,
+   "w": 512,
+   "h": 1024,
+   "model": "runware:400@2",
+   "file": "facade_artdeco_teal_day.png"
+  },
+  {
+   "id": "facade_brutalist",
+   "cost": 0.00078,
+   "w": 512,
+   "h": 1024,
+   "model": "runware:400@2",
+   "file": "facade_brutalist_day.png"
+  },
+  {
+   "id": "facade_tower_gold",
+   "cost": 0.00078,
+   "w": 512,
+   "h": 1024,
+   "model": "runware:400@2",
+   "file": "facade_tower_gold_day.png"
+  },
+  {
+   "id": "facade_mirror_green",
+   "cost": 0.00078,
+   "w": 512,
+   "h": 1024,
+   "model": "runware:400@2",
+   "file": "facade_mirror_green_day.png"
+  },
+  {
+   "id": "facade_precast_panel",
+   "cost": 0.00078,
+   "w": 512,
+   "h": 1024,
+   "model": "runware:400@2",
+   "file": "facade_precast_panel_day.png"
+  },
+  {
+   "id": "facade_corporate_steel",
+   "cost": 0.00078,
+   "w": 512,
+   "h": 1024,
+   "model": "runware:400@2",
+   "file": "facade_corporate_steel_day.png"
+  }
+ ],
+ "total_usd": 0.01859,
+ "image_count": 18
+}

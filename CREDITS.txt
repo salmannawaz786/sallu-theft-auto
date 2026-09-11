@@ -52,6 +52,13 @@ COMMERCIAL USE PERMITTED (CC BY 4.0 - credit required)
   file: low_poly_night_city_building_skyline.glb
 
 
+"2005 Car Audi" (https://skfb.ly/pNCPA) by zairiq-zairiq-123-pixar-cars-bfdi
+  licensed under CC Attribution 4.0 (http://creativecommons.org/licenses/by/4.0/)
+  file: meshes/car_audi_a4.glb  (prepared from 2005_car_audi.glb)
+  Modified: decimated 9.6k -> 8.3k triangles, textures recompressed to WebP.
+  Attribution required; commercial use permitted.
+
+
 NON-COMMERCIAL ONLY - DO NOT SHIP IN A PAID BUILD
 --------------------------------------------------
 
@@ -61,6 +68,16 @@ NON-COMMERCIAL ONLY - DO NOT SHIP IN A PAID BUILD
   The NC clause forbids commercial use of any kind. Fine for a personal or
   portfolio build; must be removed before the game is sold, put behind ads,
   or otherwise monetised.
+
+"2018 Audi e-tron GT Concept" (https://skfb.ly/pMFUu) by Ddiaz Design
+  licensed under CC BY-NC-SA 4.0
+  (http://creativecommons.org/licenses/by-nc-sa/4.0/)
+  file: meshes/car_etron_gt.glb  (prepared from 2018_audi_e-tron_gt_concept.glb)
+  Modified: cabin interior removed, decimated 68k -> 27k triangles, textures
+  recompressed to WebP at 1024px. See pipeline/prep_sketchfab_cars.mjs.
+  NC forbids commercial use. SA additionally requires that this modified
+  version be offered under the same CC BY-NC-SA 4.0 terms - so if the project
+  is redistributed, this model's licence travels with it.
 
 "Old car" (https://sketchfab.com/3d-models/old-car-564fc37061494294889ef420bdade877)
   by solid3DDD (https://sketchfab.com/solid3ddd)
