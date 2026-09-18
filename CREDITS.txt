@@ -91,3 +91,26 @@ NON-COMMERCIAL ONLY - DO NOT SHIP IN A PAID BUILD
 
 Licence text as recorded inside each GLB (asset.extras.license) was used as
 the source of truth for this file, since it travels with the model.
+
+--- Godot edition: additional character models -------------------------------
+
+"VR Show" (https://skfb.ly/6TJPH) by yang_xiaogang is licensed under
+Creative Commons Attribution (http://creativecommons.org/licenses/by/4.0/).
+
+"222" (https://skfb.ly/6RCFo) by regint17 is licensed under
+Creative Commons Attribution (http://creativecommons.org/licenses/by/4.0/).
+
+"Lamar" (https://skfb.ly/Rsps) by 3D Selfie Scans is licensed under
+Creative Commons Attribution (http://creativecommons.org/licenses/by/4.0/).
+
+"Dummy girl" (https://skfb.ly/ooWVz) by Sector347 is licensed under
+Creative Commons Attribution (http://creativecommons.org/licenses/by/4.0/).
+
+"Police 3D Model" (https://skfb.ly/oHWWX) by Aayush.Bhattarai is licensed under
+Creative Commons Attribution (http://creativecommons.org/licenses/by/4.0/).
+
+"Police" (https://skfb.ly/otoKS) by Alihan is licensed under
+Creative Commons Attribution (http://creativecommons.org/licenses/by/4.0/).
+
+"Police" (https://skfb.ly/6UrnX) by Tech developers is licensed under
+Creative Commons Attribution (http://creativecommons.org/licenses/by/4.0/).

@@ -2,7 +2,10 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#07090c">
 <title>Sallu Theft Auto: Web Edition</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
@@ -76,7 +79,14 @@ body{font-family:'Space Grotesk',sans-serif;color:var(--paper);user-select:none;
 #ask .aq{font-size:14px;line-height:1.5;margin:7px 0 6px}
 #ask .am{font-size:10.5px;letter-spacing:1.5px;color:var(--dim)}
 #perf{position:absolute;top:18px;left:20px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:11.5px;line-height:1.55;color:rgba(242,234,217,.82);background:rgba(6,8,10,.55);border-left:2px solid var(--amber);padding:6px 10px;border-radius:3px;white-space:pre}
-#hint{position:absolute;bottom:4px;left:50%;transform:translateX(-50%);font-size:11px;letter-spacing:1.5px;color:rgba(242,234,217,.55);white-space:nowrap}
+/* It used to list every key in the game, permanently, across the bottom of the
+   road. All of that is in the guide now; what is left is the one line that
+   tells you where the guide is - and it fades out once you have been told. */
+#hint{position:absolute;bottom:6px;left:50%;transform:translateX(-50%);font-size:11px;
+ letter-spacing:1.8px;color:rgba(242,234,217,.42);white-space:nowrap;
+ transition:opacity 1.2s;pointer-events:none}
+#hint b{color:var(--amber);font-weight:700}
+#hint.faded{opacity:0}
 .overlay{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:10;transition:opacity .7s}
 .overlay.gone{opacity:0;pointer-events:none}
 #title{background:rgba(6,8,10,.5);cursor:pointer}
@@ -93,7 +103,7 @@ kbd{font-size:11.5px;color:var(--paper);border:1px solid rgba(242,234,217,.28);b
 #credit a{color:var(--amber);text-decoration:none;border-bottom:1px solid rgba(255,180,84,.35);padding-bottom:1px;pointer-events:auto}
 #credit a:hover{border-bottom-color:var(--amber)}
 #credit .cred-note{font-size:11px;color:rgba(242,234,217,.38);letter-spacing:1px;margin-top:3px;text-align:center;max-width:34em}
-#title h1{line-height:.88}
+#title h1{line-height:.88;text-align:center}
 #start{margin-top:22px;font-size:14px;letter-spacing:5px;color:var(--amber);animation:pu 1.8s infinite;text-align:center;padding:0 20px}
 @keyframes pu{50%{opacity:.35}}
 #dead{background:transparent;opacity:0;pointer-events:none;transition:opacity .5s;z-index:11}
@@ -107,6 +117,165 @@ kbd{font-size:11.5px;color:var(--paper);border:1px solid rgba(242,234,217,.28);b
 #pause{background:rgba(6,8,10,.7)}
 #pause h2{font-family:'Archivo Black';font-size:44px;letter-spacing:8px}
 #pause p{margin-top:12px;color:var(--dim);font-size:14px;letter-spacing:2px}
+
+/* ================= TOUCH / MOBILE =================
+   Everything here is inert on a desktop: the layer is display:none until the
+   body picks up .touch, which only happens on a coarse pointer. */
+
+/* A browser's own gestures are the enemy of a game that reads drags. Pinch
+   zoom, double-tap zoom, pull-to-refresh and rubber-band scroll all fire on
+   exactly the movements used to steer and look, so they are refused outright
+   rather than fought per-event. */
+body.touch{touch-action:none;overscroll-behavior:none;-webkit-touch-callout:none}
+body.touch #c{touch-action:none}
+
+/* ---- portrait gate ---- */
+#rotate{position:fixed;inset:0;z-index:30;display:none;flex-direction:column;
+ align-items:center;justify-content:center;background:#07090c;text-align:center;padding:28px;gap:20px}
+body.touch.portrait #rotate{display:flex}
+#rotate .ph{width:62px;height:104px;border:3px solid var(--amber);border-radius:12px;
+ position:relative;animation:rotph 2.1s ease-in-out infinite}
+#rotate .ph::after{content:'';position:absolute;left:50%;bottom:7px;width:22px;height:3px;
+ background:var(--amber);transform:translateX(-50%);border-radius:2px}
+@keyframes rotph{0%,38%{transform:rotate(0)}68%,100%{transform:rotate(-90deg)}}
+#rotate h3{font-family:'Archivo Black';font-size:18px;letter-spacing:4px;color:var(--amber)}
+#rotate p{font-size:13px;color:var(--dim);letter-spacing:1px;max-width:24em;line-height:1.65}
+
+/* ---- the controls themselves ---- */
+/* Above the HUD (z 5) because the HUD is pointer-events:none and these are the
+   only thing on screen that must actually receive input. */
+#touch{position:fixed;inset:0;z-index:6;display:none;touch-action:none}
+body.touch #touch.on{display:block}
+#stick{position:absolute;left:calc(20px + env(safe-area-inset-left));bottom:20px;
+ width:136px;height:136px;border-radius:50%;
+ background:rgba(8,10,14,.32);border:2px solid rgba(242,234,217,.38);
+ box-shadow:0 4px 20px rgba(0,0,0,.5),inset 0 0 28px rgba(0,0,0,.34)}
+#stick::after{content:'';position:absolute;inset:50% auto auto 50%;width:6px;height:6px;
+ margin:-3px 0 0 -3px;border-radius:50%;background:rgba(242,234,217,.30)}
+#knob{position:absolute;left:50%;top:50%;width:60px;height:60px;margin:-30px 0 0 -30px;
+ border-radius:50%;background:rgba(242,234,217,.82);border:2px solid rgba(8,10,14,.55);
+ box-shadow:0 3px 14px rgba(0,0,0,.6);will-change:transform}
+.tbtn{position:absolute;display:flex;align-items:center;justify-content:center;text-align:center;
+ border-radius:50%;background:rgba(8,10,14,.44);border:2px solid rgba(242,234,217,.42);
+ color:var(--paper);font-size:11.5px;letter-spacing:1.2px;font-weight:700;line-height:1.05;
+ text-shadow:1px 1px 0 rgba(0,0,0,.8);box-shadow:0 4px 16px rgba(0,0,0,.45);
+ -webkit-tap-highlight-color:transparent}
+.tbtn.press{background:rgba(255,180,84,.78);border-color:var(--amber);color:#10131a;text-shadow:none}
+#bAct  {right:calc(26px + env(safe-area-inset-right));bottom:104px;width:94px;height:94px;
+        font-size:13px;border-color:rgba(255,180,84,.66);background:rgba(40,26,8,.46)}
+#bEnter{right:calc(132px + env(safe-area-inset-right));bottom:30px;width:76px;height:76px}
+#bAux  {right:calc(28px + env(safe-area-inset-right));bottom:16px;width:70px;height:70px;font-size:11px}
+#bMap  {right:calc(216px + env(safe-area-inset-right));bottom:36px;width:58px;height:58px;font-size:10px}
+#bPause{top:calc(12px + env(safe-area-inset-top));right:calc(12px + env(safe-area-inset-right));
+        width:44px;height:44px;border-radius:13px;font-size:13px;letter-spacing:2px}
+
+/* ---- HUD, rearranged for a landscape phone ----
+   The desktop layout puts the radar bottom-left and the speedo bottom-right,
+   which is exactly where the stick and the buttons have to go. Everything
+   moves out of the thumbs' way rather than being scaled down on top of them. */
+body.touch #hint,body.touch #wm{display:none}
+body.touch #money{top:calc(10px + env(safe-area-inset-top));right:72px;font-size:21px}
+body.touch #stars{top:calc(38px + env(safe-area-inset-top));right:72px}
+body.touch #stars svg{width:15px;height:15px}
+body.touch #radarW{top:calc(10px + env(safe-area-inset-top));left:calc(10px + env(safe-area-inset-left));
+ bottom:auto;width:118px}
+body.touch #radar{width:118px;height:93px}
+body.touch #radio{top:calc(128px + env(safe-area-inset-top));left:calc(10px + env(safe-area-inset-left));
+ bottom:auto;width:118px;font-size:10px;padding:4px 7px}
+body.touch #speedo{right:calc(24px + env(safe-area-inset-right));bottom:210px;text-align:right}
+body.touch #speed{font-size:27px}
+body.touch #speedo .bar{width:92px}
+body.touch #mission{bottom:16px;left:50%;max-width:44vw}
+body.touch #mTitle{font-size:12px}
+body.touch #mObj{font-size:12px}
+body.touch #prompt{bottom:206px;font-size:12px}
+body.touch #ask{bottom:214px;width:min(400px,54vw)}
+body.touch #toasts{top:calc(12px + env(safe-area-inset-top));left:auto;right:140px;transform:none;align-items:flex-end}
+body.touch .toast{font-size:11.5px;padding:5px 11px}
+body.touch #title .controls{display:none}
+
+/* ---- closing the map on a phone ----
+   #bigmapW is z-index 9 and #touch is 6, so with the map open every touch
+   control - including the MAP button that would close it again - is sitting
+   underneath a full-screen overlay and cannot be reached. On desktop that
+   never showed up because M closes it and there is no M on a phone. */
+#mapClose{position:absolute;top:calc(14px + env(safe-area-inset-top));
+ right:calc(14px + env(safe-area-inset-right));width:46px;height:46px;border-radius:13px;
+ display:flex;align-items:center;justify-content:center;font-size:19px;line-height:1;
+ background:rgba(8,10,14,.72);border:2px solid rgba(242,234,217,.42);color:var(--paper);
+ pointer-events:auto;cursor:pointer;-webkit-tap-highlight-color:transparent}
+#mapClose:active{background:rgba(255,180,84,.78);color:#10131a}
+
+/* ---- settings ---- */
+/* On a desktop the way in is ESC, so the button is not needed and is just
+   another thing sitting on top of the game. Touch has no ESC key, so it keeps
+   it - see body.touch below. */
+#gear{display:none!important}
+body.touch #gear{display:flex!important}
+#gear{position:fixed;z-index:12;top:92px;right:24px;width:42px;height:42px;border-radius:12px;
+ display:flex;align-items:center;justify-content:center;font-size:18px;line-height:1;
+ background:rgba(8,10,14,.55);border:1px solid rgba(242,234,217,.30);color:var(--paper);
+ cursor:pointer;pointer-events:auto;-webkit-tap-highlight-color:transparent;transition:background .15s}
+#gear:hover{background:rgba(8,10,14,.8);border-color:rgba(255,180,84,.6)}
+body.touch #gear{top:calc(12px + env(safe-area-inset-top));right:calc(64px + env(safe-area-inset-right));
+ width:44px;height:44px;border-width:2px;background:rgba(8,10,14,.62)}
+#title:not(.gone) ~ #gear{display:none}
+
+#setW{position:fixed;inset:0;z-index:20;display:flex;align-items:center;justify-content:center;
+ background:rgba(4,6,9,.78);backdrop-filter:blur(3px);padding:16px}
+#setP{width:min(430px,92vw);max-height:88vh;overflow-y:auto;background:rgba(10,12,16,.97);
+ border:1px solid rgba(242,234,217,.16);border-radius:10px;padding:16px 18px 18px;
+ box-shadow:0 18px 60px rgba(0,0,0,.7)}
+#setP h3{font-family:'Archivo Black';font-size:15px;letter-spacing:4px;color:var(--amber);
+ display:flex;justify-content:space-between;align-items:center}
+#setP h3 span{font-family:'Space Grotesk';font-weight:700;font-size:20px;letter-spacing:0;
+ color:var(--dim);cursor:pointer;padding:0 4px;line-height:1}
+#setP h3 span:hover{color:var(--paper)}
+.setRow{margin-top:14px}
+.setRow b{display:block;font-size:10.5px;letter-spacing:2.4px;color:var(--dim);
+ text-transform:uppercase;margin-bottom:6px;font-weight:500}
+.segs{display:flex;gap:5px;flex-wrap:wrap}
+.segs i{flex:1 1 auto;min-width:56px;text-align:center;font-style:normal;font-size:11.5px;
+ letter-spacing:1.2px;padding:8px 4px;border-radius:6px;cursor:pointer;
+ background:rgba(255,255,255,.05);border:1px solid rgba(242,234,217,.16);
+ -webkit-tap-highlight-color:transparent;transition:background .12s}
+.segs i:hover{background:rgba(255,255,255,.11)}
+.segs i.on{background:var(--amber);border-color:var(--amber);color:#10131a;font-weight:700}
+#setNow{margin-top:16px;padding-top:12px;border-top:1px solid rgba(242,234,217,.12);
+ font-size:11px;letter-spacing:1.2px;color:var(--dim);line-height:1.7}
+
+/* ---- paged menu ---- */
+.menuList{display:flex;flex-direction:column;gap:7px;margin-top:12px}
+.menuList i{font-style:normal;text-align:center;font-size:13px;letter-spacing:2.4px;
+ padding:13px 10px;border-radius:7px;cursor:pointer;font-weight:700;
+ background:rgba(255,255,255,.05);border:1px solid rgba(242,234,217,.18);
+ -webkit-tap-highlight-color:transparent;transition:background .12s}
+.menuList i:hover{background:rgba(255,255,255,.12);border-color:rgba(242,234,217,.4)}
+.menuList i.hot{background:var(--amber);border-color:var(--amber);color:#10131a}
+.menuList i.hot:hover{background:#ffc470}
+
+/* the vehicle list: one row per model, the way a cheat menu does it */
+.carList{display:flex;flex-direction:column;gap:4px;margin-top:10px;
+ max-height:46vh;overflow-y:auto;padding-right:4px}
+.carList i{font-style:normal;display:flex;justify-content:space-between;align-items:center;
+ gap:10px;font-size:12.5px;letter-spacing:1.6px;padding:10px 13px;border-radius:6px;
+ cursor:pointer;background:rgba(255,255,255,.04);
+ border:1px solid rgba(242,234,217,.14);-webkit-tap-highlight-color:transparent}
+.carList i:hover{background:rgba(255,180,84,.22);border-color:var(--amber)}
+.carList i em{font-style:normal;font-size:10px;letter-spacing:1.4px;color:var(--dim)}
+.carList i.rare{border-color:rgba(255,180,84,.55)}
+.carList i.rare em{color:var(--amber)}
+
+/* the guide */
+.gkeys{margin-top:12px;display:flex;flex-direction:column;gap:9px}
+.gkeys section{display:flex;flex-direction:column;gap:5px}
+.gkeys h4{font-size:10px;letter-spacing:2.6px;color:var(--amber);text-transform:uppercase;
+ font-weight:500;margin-bottom:2px}
+.gkeys .row{display:flex;align-items:baseline;gap:10px;font-size:12px;color:rgba(242,234,217,.88)}
+.gkeys .row span{flex:0 0 116px;color:var(--paper);font-weight:700;font-size:11px;letter-spacing:1.3px}
+#setNow em{font-style:normal;color:var(--paper)}
+body.touch #title h1{font-size:clamp(38px,9vw,68px)}
+body.touch #credit .cred-note{display:none}
 </style>
 </head>
 <body>
@@ -133,7 +302,7 @@ kbd{font-size:11.5px;color:var(--paper);border:1px solid rgba(242,234,217,.28);b
   <div id="perf" class="hidden"></div>
   <div id="apb" class="hidden"></div>
   <div id="ask" class="hidden"></div>
-  <div id="hint">W A S D &middot; SPACE handbrake &middot; F enter / exit &middot; CLICK punch &middot; M map &middot; [ ] radio &middot; E ask a witness &middot; SHIFT sprint &middot; C camera &middot; T time / Shift+T night &middot; R rain &middot; G graphics &middot; F3 stats &middot; F4 profile &middot; ESC pause</div>
+  <div id="hint">Press <b>ESC</b> for the menu</div>
 </div>
 
 <div id="title" class="overlay">
@@ -160,10 +329,85 @@ kbd{font-size:11.5px;color:var(--paper);border:1px solid rgba(242,234,217,.28);b
   <div id="bigmapInner">
     <div id="mapHead"><b>STF</b><span id="mapWhere"></span></div>
     <canvas id="bigmap"></canvas>
-    <div id="mapKey"><span><i style="background:#f2ead9"></i>You</span><span><i style="background:#ff6f91"></i>Pickup</span><span><i style="background:#ffb454"></i>Drop-off</span><span><i style="background:#3d8bff"></i>Police</span><em>M to close</em></div>
+    <div id="mapKey"><span><i style="background:#f2ead9"></i>You</span><span><i style="background:#ff6f91"></i>Pickup</span><span><i style="background:#ffb454"></i>Drop-off</span><span><i style="background:#3d8bff"></i>Police</span><em id="mapHint">M to close</em></div>
+  </div>
+  <div id="mapClose">&#10005;</div>
+</div>
+<div id="pause" class="overlay hidden"><h2>PAUSED</h2><p id="pauseHint">CLICK TO RESUME</p></div>
+
+<div id="touch">
+  <div id="stick"><div id="knob"></div></div>
+  <div class="tbtn" id="bAct">PUNCH</div>
+  <div class="tbtn" id="bEnter">ENTER</div>
+  <div class="tbtn" id="bAux">ASK</div>
+  <div class="tbtn" id="bMap">MAP</div>
+  <div class="tbtn" id="bPause">II</div>
+</div>
+
+<div id="gear">&#9881;</div>
+
+<div id="setW" class="hidden">
+  <div id="setP">
+    <h3><span id="setTitle">PAUSED</span><span id="setX">&#10005;</span></h3>
+
+    <div class="setPage" id="pgRoot">
+      <div class="menuList">
+        <i data-go="resume">RESUME</i>
+        <i data-go="guide">HOW TO PLAY</i>
+        <i data-go="cheats">CHEATS &amp; OPTIONS</i>
+      </div>
+    </div>
+
+    <div class="setPage hidden" id="pgGuide">
+      <div class="gkeys" id="guideKeys"></div>
+      <div class="menuList"><i data-go="root">BACK</i></div>
+    </div>
+
+    <div class="setPage hidden" id="pgCheats">
+      <div class="menuList"><i data-go="spawn" class="hot">SPAWN A VEHICLE</i></div>
+
+      <div class="setRow"><b>Weather</b>
+        <div class="segs" id="segWx"><i data-w="0">CLEAR</i><i data-w="1">RAIN</i></div>
+      </div>
+
+      <div class="setRow"><b>Time of day</b>
+        <div class="segs" id="segTime">
+          <i data-t="cycle">CYCLE</i><i data-t=".25">NOON</i><i data-t=".46">DUSK</i><i data-t=".66">NIGHT</i>
+        </div>
+      </div>
+
+      <div class="setRow"><b>Graphics</b>
+        <div class="segs" id="segQual">
+          <i data-q="auto">AUTO</i><i data-q="0">LOW</i><i data-q="1">MED</i><i data-q="2">HIGH</i><i data-q="3">ULTRA</i>
+        </div>
+      </div>
+
+      <div class="setRow"><b>Resolution</b>
+        <div class="segs" id="segRes">
+          <i data-r=".7">70%</i><i data-r=".85">85%</i><i data-r="1">100%</i><i data-r="1.15">115%</i>
+        </div>
+      </div>
+
+      <div class="setRow"><b>This car drives backwards?</b>
+        <div class="segs"><i id="btnFlip">TURN IT ROUND</i></div>
+      </div>
+
+      <div id="setNow"></div>
+      <div class="menuList"><i data-go="root">BACK</i></div>
+    </div>
+
+    <div class="setPage hidden" id="pgSpawn">
+      <div class="carList" id="segSpawn"></div>
+      <div class="menuList"><i data-go="cheats">BACK</i></div>
+    </div>
   </div>
 </div>
-<div id="pause" class="overlay hidden"><h2>PAUSED</h2><p>CLICK TO RESUME</p></div>
+
+<div id="rotate">
+  <div class="ph"></div>
+  <h3>ROTATE YOUR PHONE</h3>
+  <p>Sallu Theft Auto plays in landscape. Turn your device sideways and the game picks up where it left off.</p>
+</div>
 
 <script>
 /* If the 3D library can't load (offline?), say so instead of sitting silent */
@@ -227,12 +471,18 @@ function guessTier(){
   if(/SwiftShader|llvmpipe|Software/i.test(r))return 0;
   if(/Intel/i.test(r)&&!/Arc/i.test(r))return 0;
   if(/Mali|Adreno|PowerVR/i.test(r))return 0;
+  /* Apple silicon reports "Apple GPU" on both a Mac and an iPhone, and the
+     string alone cannot tell them apart. A coarse pointer can: a phone gets
+     the middle tier, which keeps shadows and bloom but halves the shading
+     work of ULTRA - and the auto-quality governor can still move it. */
+  try{if(matchMedia('(pointer:coarse)').matches)return 1}catch(e){}
   if(/GTX 16|RTX 20|RX 5[45]0|MX\d/i.test(r))return 2;
   return 2;
  }catch(e){return 1}
 }
 let qual=guessTier();
-const renderer=new THREE.WebGLRenderer({canvas:$('c'),antialias:false});
+const renderer=new THREE.WebGLRenderer({canvas:$('c'),antialias:false,
+ powerPreference:'high-performance'});
 renderer.info.autoReset=false;   /* we render several passes per frame; total them ourselves */
 renderer.setPixelRatio(Math.min(devicePixelRatio,TIERS[qual].pr));
 renderer.setSize(innerWidth,innerHeight);
@@ -244,6 +494,8 @@ renderer.toneMappingExposure=1.05;
 const scene=new THREE.Scene();
 scene.fog=new THREE.Fog(0xffffff,200,720);
 const camera=new THREE.PerspectiveCamera(63,innerWidth/innerHeight,.1,3200);
+/* scratch for the shadow texel snap - see updateSky */
+const _shF=new THREE.Vector3(),_shR=new THREE.Vector3(),_shU=new THREE.Vector3(),_shC=new THREE.Vector3();
 camera.position.set(0,90,220);
 addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);if(composer)composer.setSize(innerWidth,innerHeight)});
 const sun=new THREE.DirectionalLight(0xffffff,2);
@@ -379,14 +631,21 @@ const JUNGLE={i0:0,i1:1,j0:6,j1:7};
 const isJungle=(bi,bj)=>bi>=JUNGLE.i0&&bi<=JUNGLE.i1&&bj>=JUNGLE.j0&&bj<=JUNGLE.j1;
 
 const blockType=[];
+const GROUND_PX=(()=>{
+ try{if(matchMedia('(pointer:coarse)').matches)return 2048}catch(e){}
+ return 4096;
+})();
 {
- const c=document.createElement('canvas');c.width=c.height=2048;const g=c.getContext('2d');
+ const c=document.createElement('canvas');c.width=c.height=GROUND_PX;const g=c.getContext('2d');
  groundCanvas=c;groundCtx=g;
- const s=2048/GS,W=v=>(v+GS/2)*s;
+ const s=GROUND_PX/GS,W=v=>(v+GS/2)*s;
  groundScale=s;groundW=W;
- g.fillStyle='#d8c493';g.fillRect(0,0,2048,2048);
- for(let i=0;i<2600;i++){g.fillStyle=Math.random()<.5?'rgba(90,70,40,.05)':'rgba(255,255,255,.05)';g.fillRect(rand(2048),rand(2048),rand(1,4),rand(1,4))}
- g.strokeStyle='rgba(120,105,70,.35)';g.lineWidth=20;g.strokeRect(W(-GS/2+12),W(-GS/2+12),2048-24*s,2048-24*s);
+ g.fillStyle='#d8c493';g.fillRect(0,0,GROUND_PX,GROUND_PX);
+ /* the speckle is per-pixel-area, so it has to scale with the plate or a
+    4096 canvas ends up half as grainy as the 2048 one it replaced */
+ const speckle=Math.round(2600*(GROUND_PX/2048)*(GROUND_PX/2048));
+ for(let i=0;i<speckle;i++){g.fillStyle=Math.random()<.5?'rgba(90,70,40,.05)':'rgba(255,255,255,.05)';g.fillRect(rand(GROUND_PX),rand(GROUND_PX),rand(1,4)*(GROUND_PX/2048),rand(1,4)*(GROUND_PX/2048))}
+ g.strokeStyle='rgba(120,105,70,.35)';g.lineWidth=20*(GROUND_PX/2048);g.strokeRect(W(-GS/2+12),W(-GS/2+12),GROUND_PX-24*s,GROUND_PX-24*s);
  g.fillStyle='#9b948b';g.fillRect(W(-CITY/2),W(-CITY/2),CITY*s,CITY*s);
  for(let bi=0;bi<BLOCKS;bi++){blockType[bi]=[];
   for(let bj=0;bj<BLOCKS;bj++){
@@ -532,6 +791,21 @@ function roughFromLuma(img,lo,hi){
    the dark half of the texture as a spatter; a cell that is mostly dark is a
    window, and lighting whole cells is what reads as somebody's flat with the
    light on. */
+/* Mean luminance of an image, 0-255. Downsampled hard first: this only needs
+   the average, and averaging 32x32 costs the same for a 2048px plate as for a
+   256px one. Runs once per texture at load. */
+function meanLuma(img){
+ try{
+  const c=document.createElement('canvas');c.width=c.height=32;
+  const g=c.getContext('2d',{willReadFrequently:true});
+  g.drawImage(img,0,0,32,32);
+  const d=g.getImageData(0,0,32,32).data;
+  let s=0;
+  for(let i=0;i<d.length;i+=4)s+=.2126*d[i]+.7152*d[i+1]+.0722*d[i+2];
+  return s/(d.length/4);
+ }catch(e){return 150}          /* tainted canvas: fall back to "average wall" */
+}
+
 function emissiveFromAlbedo(img,cols,rows,litChance){
  const N=Math.min(img.width||256,256), M=Math.min(img.height||256,256);
  const src=document.createElement('canvas');src.width=N;src.height=M;
@@ -765,7 +1039,12 @@ let roadMat=null,roadMesh=null;
     affecting the base diffuse colour the way metalness would. */
  roadMat=new THREE.MeshStandardMaterial({
   color:0x3d4148,  /* dark charcoal — real dry city tarmac base */
-  roughness:.97,metalness:0,envMapIntensity:.18,
+  /* A dielectric that reflects nothing reads as chalk. Real asphalt has a
+     weak but present sheen - you see the sky in it at a grazing angle, which
+     is why a road photographs light near the horizon and dark underfoot.
+     0.18 was too timid for that to show, and the base roughness comes down a
+     touch with it so the burnished ruts have something to be smoother THAN. */
+  roughness:.93,metalness:0,envMapIntensity:.42,
   vertexColors:true,
   polygonOffset:true,polygonOffsetFactor:-2,polygonOffsetUnits:-2
  });
@@ -808,13 +1087,37 @@ let roadMat=null,roadMesh=null;
       never swims when the camera moves. */
    .replace('#include <map_fragment>',`#include <map_fragment>
     vec2 rdW=vRoadW;
+    /* The two slow octaves are what stop a 3.8m tile reading as a grid, but
+       they were swinging the surface across 0.82-1.14 - a 39% light-to-dark
+       range over a 30m wavelength, which at street level is not a road
+       resurfaced in stages, it is mud. Halved to 0.90-1.07: still enough to
+       kill the repeat, not enough to read as dirt. */
     float rdM=rdN(rdW*0.030)*0.63+rdN(rdW*0.0105)*0.37;
-    diffuseColor.rgb*=0.82+0.32*rdM;
-    float rdP=smoothstep(0.63,0.80,rdN(rdW*0.016+31.7));
-    diffuseColor.rgb*=1.0-0.11*rdP;`)
+    diffuseColor.rgb*=0.90+0.17*rdM;
+    /* Repair strips stay, at about half depth. */
+    float rdP=smoothstep(0.66,0.82,rdN(rdW*0.016+31.7));
+    diffuseColor.rgb*=1.0-0.06*rdP;
+    /* There WAS a third octave here at aggregate scale, to stop the tarmac in
+       front of the bumper reading as a flat wash. It was the wrong place to
+       buy that detail: the road fills the bottom half of every frame, so a
+       fourth noise evaluation - four hashes, four sin() calls - is paid on
+       something like 40% of all pixels, and it measurably cost frames. The
+       relief map does the same job in the same frequency band for free,
+       because that texture fetch already happens either way. */`)
    .replace('#include <roughnessmap_fragment>',`#include <roughnessmap_fragment>
     float rdG=rdN(vRoadW*1.9)*0.5+rdN(vRoadW*0.28)*0.5;
-    roughnessFactor*=mix(0.88+0.20*rdG,1.0,uRoadWet);`);
+    roughnessFactor*=mix(0.88+0.20*rdG,1.0,uRoadWet);
+    /* wearAt() already works out where tyres run - it lightens four ribbons
+       per carriageway and darkens the gutters - and bakes it into the vertex
+       colour, where it was only ever driving brightness. But a tyre track is
+       not merely paler, it is POLISHED: years of rubber burnish the aggregate
+       flat, so it goes smoother than the road around it and throws a long
+       specular streak when the sun is low. Reusing the colour that is already
+       there costs one varying read and no new texture. */
+    float rdWear=smoothstep(0.74,0.90,vColor.g);
+    roughnessFactor*=1.0-0.34*rdWear;
+    float rdGut=1.0-smoothstep(0.52,0.66,vColor.g);
+    roughnessFactor=min(1.0,roughnessFactor*(1.0+0.10*rdGut));`);
  };
  roadMesh=new THREE.Mesh(g,roadMat);
  roadMesh.name='road';
@@ -1720,7 +2023,30 @@ function updateSmoke(dt){
   p.s.material.opacity=p.op*(1-Math.pow(Math.max(0,(u-p.fade)/(1-p.fade)),1.6));
  }
 }
+/* Why a burning car is not painted in soot colours.
+
+   These puffs are alpha-blended sprites with depthWrite off, so every one the
+   view ray passes through multiplies the background down again. A column of
+   them at opacity .55 saturates after about five overlaps: 1-(1-.55)^5 is
+   already 98% opaque, at which point the pixel is the tint and nothing else.
+   SMOKE_SOOT is 0x101113 - that reading is BLACK.
+
+   How many sprites overlap depends on where you are standing. Look at a plume
+   side-on and you are looking across the narrow axis of a rising column, so
+   only two or three stack and the background still shows through as pale grey
+   smoke. Swing the camera and you look ALONG it, ten or more deep, and the
+   same plume goes to flat black. Nothing about the particles changed; the
+   count along the ray did. That is the "white from behind, black from the
+   side" bug, and no amount of tinting per particle fixes it while the stack
+   is allowed to saturate on something this dark.
+
+   So the plume is built out of greys that are still smoke at full saturation,
+   and each puff is thinner, which leaves the stack somewhere it can actually
+   show depth instead of clipping. The soot stays, but only as the dirty end
+   of the ramp near the flame where a real fire does make black smoke. */
 const SMOKE_LIGHT=new THREE.Color(0xb9bdc2),
+      SMOKE_MID  =new THREE.Color(0x8a8f95),
+      SMOKE_GREY =new THREE.Color(0x5c6167),
       SMOKE_DARK =new THREE.Color(0x24262a),
       SMOKE_SOOT =new THREE.Color(0x101113),
       FIRE_HOT   =new THREE.Color(0xffb347),
@@ -1742,9 +2068,11 @@ function carSmoke(c,dt){
  const nose=((u&&u.len)||4.6)*.42;
  const x=c.x+Math.sin(c.h)*nose, z=c.z+Math.cos(c.h)*nose;
  const heavy=(h-.35)/.65;
- _smokeCol.copy(SMOKE_LIGHT).lerp(SMOKE_DARK,heavy);
+ /* a damaged car steams before it burns: white at first, dirtier as it goes,
+    but it stops at mid grey for the same stacking reason as the wreck plume */
+ _smokeCol.copy(SMOKE_LIGHT).lerp(SMOKE_MID,heavy);
  puff(x+rand(-.3,.3),.95+rand(0,.3),z+rand(-.3,.3),{
-  col:_smokeCol, op:lerp(.20,.60,heavy), life:lerp(1.1,2.4,heavy),
+  col:_smokeCol, op:lerp(.18,.42,heavy), life:lerp(1.1,2.4,heavy),
   g:lerp(.9,1.5,heavy), g1:lerp(3.0,6.0,heavy),
   vy:lerp(1.4,2.4,heavy), vx:rand(-.35,.35)+c.vx*.10, vz:rand(-.35,.35)+c.vz*.10,
   fade:.25});
@@ -1770,9 +2098,11 @@ function updateCarFx(dt){
   if(c._smk>0)continue;
   c._smk=rand(.12,.26);
   const fade=clamp(c.burn/8,0,1);
-  _smokeCol.copy(SMOKE_DARK).lerp(SMOKE_SOOT,Math.random()*.7);
+  /* light grey at the top of the ramp, mid grey at the bottom - never soot.
+     Opacity is down from .55 so a deep stack still reads as smoke. */
+  _smokeCol.copy(SMOKE_LIGHT).lerp(SMOKE_GREY,Math.random()*.85);
   puff(c.x+rand(-.7,.7),rand(.7,1.4),c.z+rand(-.7,.7),{
-   col:_smokeCol,op:.55*fade,life:rand(2.4,4.2),g:1.6,g1:rand(5,8),
+   col:_smokeCol,op:.34*fade,life:rand(2.4,4.2),g:1.6,g1:rand(5,8),
    vy:rand(1.5,2.6),vx:rand(-.4,.4),vz:rand(-.4,.4),fade:.3});
   /* while it is still properly alight, flame on top of the soot */
   if(c.burn>11&&Math.random()<.75){
@@ -1802,17 +2132,20 @@ function explode(x,z){
  }
  for(let i=0;i<11;i++){
   const a=rand(6.283),r=rand(.3,2.6);
-  _smokeCol.copy(SMOKE_DARK).lerp(SMOKE_SOOT,Math.random());
+  /* The blast itself IS dirty, so this one keeps the dark end of the ramp -
+     but it stops at SMOKE_DARK rather than running down to soot, and at a
+     lower opacity, so the column still has depth where it piles up. */
+  _smokeCol.copy(SMOKE_GREY).lerp(SMOKE_DARK,Math.random());
   puff(x+Math.cos(a)*r,rand(.6,2.6),z+Math.sin(a)*r,{
-   col:_smokeCol,op:.72,life:rand(2.2,4.4),g:1.8,g1:rand(6,10),
+   col:_smokeCol,op:.46,life:rand(2.2,4.4),g:1.8,g1:rand(6,10),
    vy:rand(1.6,3.4),vx:Math.cos(a)*rand(.4,1.7),vz:Math.sin(a)*rand(.4,1.7),fade:.30});
  }
- sfxCrash(14);
+ sfxCrash(14,x,z);
 }
 
 /* ---- cars ---- */
 const cars=[];
-/* Four silhouettes: saloon, coupe, van, pickup. Each body merges to ONE
+/* Four silhouettes: saloon, low car, van, pickup. Each body merges to ONE
    geometry, so a distinct-looking vehicle still costs a single draw call.
    Proportions are what sell the difference at gameplay distance - roof height,
    bonnet length, where the glasshouse sits - not detail. */
@@ -1831,8 +2164,10 @@ const VEHICLES=[
         [2.04,.16,3.10,0,.38,0],[1.38,.09,1.74,0,1.52,-.28]],
   cab:[1.72,2.50,.58,1.24,-.28,.82], wheel:.37, axle:1.46
  },
- { /* coupe - lower, longer bonnet, cabin pushed back */
-  name:'coupe',
+ { /* low car - lower, longer bonnet, cabin pushed back. Distant-LOD shape
+     only: it is picked by proportion, never by name, and BASE_VEHICLES is
+     indexed positionally, so this entry stays where it is. */
+  name:'lowline',
   body:[[1.92,.38,4.34,0,.44,0],[1.84,.30,2.30,0,.70,-.30],[1.80,.22,1.86,0,.66,1.30],
         [1.74,.26,.92,0,.72,-1.74],[1.96,.18,.26,0,.44,2.20],[1.96,.18,.26,0,.44,-2.18],
         [2.02,.15,3.20,0,.32,0],[1.30,.08,1.32,0,1.33,-.62]],
@@ -1913,7 +2248,17 @@ function makeCar(color,cop,kind){
  /* Police drive a saloon, not whichever body happens to be first in the pack. */
  const V=cop?(VEHICLES.find(v=>v.name==='Sedan')||VEHICLES[0])
             :(VEHICLES[kind]||pick(VEHICLES));
- g.userData.kind=V.name;g.userData.len=(V.dims&&V.dims.l)||V.axle*2+1.5;
+ /* A helicopter is not a car with different boxes on it - no wheels, no cab,
+    no lamp pods - so anything that builds itself does so and returns. */
+ if(V.build){
+  const cg=V.build(color,V);
+  cg.userData.kind=V.name;
+  cg.userData.isHeli=!!V.heli;cg.userData.isTank=!!V.tank;
+  cg.userData.len=(V.dims&&V.dims.l)||5;cg.userData.wid=(V.dims&&V.dims.w)||2;
+  return cg;
+ }
+ g.userData.kind=V.name;g.userData.isHeli=!!V.heli;g.userData.isTank=!!V.tank;
+ g.userData.len=(V.dims&&V.dims.l)||V.axle*2+1.5;
  g.userData.wid=(V.dims&&V.dims.w)||1.96;
  g.userData.handling=V.handling||null;g.userData.wheelR=V.wheelR||null;g.rotation.order='YXZ';
  const bm=bodyMats[color]||(bodyMats[color]=new THREE.MeshPhysicalMaterial({color,roughness:.22,metalness:.18,envMapIntensity:1.25,
@@ -2027,7 +2372,8 @@ function makeCar(color,cop,kind){
 function addCar(o){
  const c=Object.assign({x:0,z:0,h:0,vx:0,vz:0,hp:100,sp:0,spd:0,dead:false,driver:null},o);
  c.m=makeCar(c.color||'#c8c8c8',c.type==='cop',c.kind);
- c.m.position.set(c.x,0,c.z);c.m.rotation.y=c.h;
+ c.heli=!!c.m.userData.isHeli;c.tank=!!c.m.userData.isTank;
+ c.m.position.set(c.x,c.alt||0,c.z);c.m.rotation.y=c.h;
  scene.add(c.m);cars.push(c);return c;
 }
 function removeCar(c){if(c.gone)return;c.gone=true;scene.remove(c.m)}
@@ -2161,7 +2507,7 @@ function stepCar(c,thr,steer,hand,dt){
 function syncCar(c){
  if(c.gone)return;
  const m=c.m;
- m.position.set(c.x,0,c.z);
+ m.position.set(c.x,c.alt||0,c.z);
  if(m.rotation.order!=='YXZ')m.rotation.order='YXZ';
  if(c.dead){
   m.position.y=-.10;
@@ -2311,6 +2657,13 @@ function obbVsOBB(A,B){
  return {nx:bnx,nz:bnz,pen:best};
 }
 function separate(a,b){
+ /* A helicopter is not part of a traffic jam. It is 13 metres long and 11
+    across, so on the ground its footprint overlaps half a street, and the
+    player-involved branch below then charges it collision damage every frame
+    for cars it is merely parked among. The result was a machine destroyed on
+    the pad, at hp -3, before the rotor had finished spinning up - and the
+    player thrown out of it. Once airborne it is not in the same space at all. */
+ if(a.heli||b.heli)return;
  if(a.gone||b.gone)return;
  const dx=b.x-a.x,dz=b.z-a.z,d=Math.hypot(dx,dz);
  if(d===0)return;
@@ -2371,6 +2724,8 @@ let legL,legR,armL,armR;
 function enterExit(){
  if(player.mode==='drive'){
   if(player.car.sp>6)return;
+  /* stepping out at altitude is a long way down */
+  if(player.car.heli&&(player.car.alt||0)>1.2){toast('Land first','warn');return}
   exitCar();return;
  }
  let best=null,bd=4.5;
@@ -2406,6 +2761,7 @@ function enterExit(){
 }
 function exitCar(){
  const c=player.car;if(!c)return;
+ if(c.heli){c.alt=0;c.vf=0;c.rotorRpm=0;syncCar(c)}
  c.driver=null;player.car=null;player.mode='foot';
  player.x=c.x+Math.cos(c.h)*2.3;player.z=c.z-Math.sin(c.h)*2.3;
  player.vx=player.vz=0;player.h=c.h;
@@ -2413,7 +2769,7 @@ function exitCar(){
  playerMesh.visible=true;playerMesh.position.set(player.x,0,player.z);
 }
 function updateFoot(dt){
- const ix=(keys.KeyD?1:0)-(keys.KeyA?1:0),iz=(keys.KeyW?1:0)-(keys.KeyS?1:0);
+ const ix=ctl.mx,iz=ctl.mz;
  /* Movement is relative to WHERE THE CAMERA LOOKS, taken straight from camYaw.
     It used to be derived from the camera's world position, which combined with
     the camera's shoulder offset meant every frame of running rotated you a few
@@ -2431,9 +2787,14 @@ function updateFoot(dt){
   let mx=Math.sin(cf)*iz-Math.cos(cf)*ix;
   let mz=Math.cos(cf)*iz+Math.sin(cf)*ix;
   const l=Math.hypot(mx,mz);mx/=l;mz/=l;
-  const sprint=(keys.ShiftLeft||keys.ShiftRight)&&iz>=0;
-  const sp=sprint?7.6:4.2;
-  wx=mx*sp;wz=mz*sp;
+  const sp=ctl.sprint?7.6:4.2;
+  /* The direction is normalised - it has to be, or diagonals run faster than
+     straight lines - so the analogue stick's magnitude has to be put back
+     afterwards, otherwise every deflection walks at exactly one speed and the
+     stick may as well have been four keys. A keyboard reports mag 1 and is
+     unaffected. Floored so a barely-there push still moves you. */
+  const gait=ctl.mag?Math.max(.34,ctl.mag):1;
+  wx=mx*sp*gait;wz=mz*sp*gait;
   /* face the way you're actually going, but turn at a human rate */
   const th=Math.atan2(mx,mz);
   player.h+=wrapA(th-player.h)*Math.min(1,13*dt);
@@ -2694,7 +3055,7 @@ function syncPed(p){
 function killPed(p,byPlayer){
  p.state='dead';p.deadT=0;p.m.rotation.x=Math.PI/2;p.m.position.y=.3;
  if(byPlayer)commitCrime('ran someone down',3,p);
- sfxCrash(7);
+ sfxCrash(7,p.x,p.z);
 }
 function stepLimbs(p,speed,dt){
  const L=p.m.userData.limbs;
@@ -2780,7 +3141,7 @@ function syncTraffic(c){
 function spawnTrafficCar(){
  const axis=pick(['x','z']),line=randi(0,BLOCKS),dir=pick([-1,1]);
  /* Use full VEHICLES array so Trellis cars appear in traffic */
- const kind=Math.floor(Math.random()*VEHICLES.length);
+ const kind=roadVehicleIndex();
  const c=addCar({axis,line,dir,t:rand(-CITY/2,CITY/2),spd:0,maxSpd:rand(9,16),color:pick(CARCOLS),ai:'traffic',kind});
  if(Math.hypot(c.x-player.x,c.z-player.z)<50){c.t+=140;if(c.t>CITY/2+30)c.t=-CITY/2-30}
  syncTraffic(c);
@@ -3057,6 +3418,16 @@ function toggleMap(){
  if(mapOpen){if(locked)document.exitPointerLock();drawBigMap()}
  else if(state==='play')wantLock();
 }
+/* The map is a full-screen overlay at z-index 9; the touch controls sit at 6.
+   So on a phone, opening the map buried every button underneath it - including
+   the MAP button that would have closed it again - and the only other way out
+   was the M key, which a phone does not have. Three ways out now: the cross,
+   the backdrop, and the MAP button as before on desktop. */
+$('mapClose').addEventListener('click',e=>{e.stopPropagation();if(mapOpen)toggleMap()});
+$('bigmapW').addEventListener('click',e=>{
+ /* only the backdrop itself - a tap on the map or the legend is not an exit */
+ if(e.target===$('bigmapW')&&mapOpen)toggleMap();
+});
 
 buildMap();
 
@@ -3097,14 +3468,71 @@ function updateHUD(){
 
 /* ---- audio ---- */
 let AC=null,engOsc=null,engGain=null,skidSrc=null,skidGain=null;
+let engOsc2=null,engOsc3=null,engSub=null,engFilt=null,engNoise=null,engNoiseF=null;
+let engOscG=null,engOsc2G=null,engOsc3G=null,engSubG=null,engNoiseG=null;
+
+/* What KIND of engine a given body has. Derived from the dimensions and top
+   speed every vehicle already carries, so a car added later gets a sensible
+   engine without anyone writing one for it.
+
+   base/span are the firing frequency at idle and how far it climbs; sub and h2
+   and h3 are how much rumble, body and edge it has; cut is how far the filter
+   opens at full noise, which is what separates a hard-revving sports engine
+   from a diesel van. */
+function engineProfile(V){
+ const d=(V&&V.dims)||{}, h=(V&&V.handling)||{};
+ const len=d.l||4.5, hgt=d.h||1.45, max=h.max||42;
+ const heavy=len>4.8||hgt>1.68;
+ const quick=max>=45;
+ if(V&&V.heli)return{base:16,span:10,sub:.85,h2:.10,h3:.02,noise:.75,cut:900,idle:.28};
+ if(V&&V.tank)return{base:32,span:46,sub:.95,h2:.30,h3:.05,noise:.55,cut:760,idle:.20};
+ if(quick) return{base:60,span:172,sub:.24,h2:.42,h3:.26,noise:.22,cut:3100,idle:.06};
+ if(heavy) return{base:44,span:96, sub:.72,h2:.22,h3:.05,noise:.34,cut:1150,idle:.09};
+ return           {base:52,span:126,sub:.40,h2:.28,h3:.12,noise:.24,cut:1850,idle:.07};
+}
+const _defEngine=engineProfile(null);
 function initAudio(){
  try{
   AC=new (window.AudioContext||window.webkitAudioContext)();
-  engOsc=AC.createOscillator();engOsc.type='sawtooth';engOsc.frequency.value=60;
-  const f=AC.createBiquadFilter();f.type='lowpass';f.frequency.value=420;
+  /* ---- the engine stack ---- */
   engGain=AC.createGain();engGain.gain.value=0;
-  engOsc.connect(f);f.connect(engGain);engGain.connect(AC.destination);
-  engOsc.start();
+  engFilt=AC.createBiquadFilter();engFilt.type='lowpass';
+  engFilt.frequency.value=700;engFilt.Q.value=1.1;
+  engFilt.connect(engGain);engGain.connect(AC.destination);
+
+  /* fundamental - the firing rate */
+  engOsc=AC.createOscillator();engOsc.type='sawtooth';engOsc.frequency.value=60;
+  engOscG=AC.createGain();engOscG.gain.value=.55;
+  engOsc.connect(engOscG);engOscG.connect(engFilt);engOsc.start();
+
+  /* octave up: square, because its hollow odd harmonics are what stop the
+     fundamental reading as a hum */
+  engOsc2=AC.createOscillator();engOsc2.type='square';engOsc2.frequency.value=120;
+  engOsc2G=AC.createGain();engOsc2G.gain.value=.18;
+  engOsc2.connect(engOsc2G);engOsc2G.connect(engFilt);engOsc2.start();
+
+  /* a third above that - only really audible near the top of a gear, which is
+     where a real engine gets its hard edge */
+  engOsc3=AC.createOscillator();engOsc3.type='sawtooth';engOsc3.frequency.value=180;
+  engOsc3G=AC.createGain();engOsc3G.gain.value=.06;
+  engOsc3.connect(engOsc3G);engOsc3G.connect(engFilt);engOsc3.start();
+
+  /* sub-octave sine: the rumble. Big engines get a lot, small ones almost
+     none, and it is the single biggest difference between body styles. */
+  engSub=AC.createOscillator();engSub.type='sine';engSub.frequency.value=30;
+  engSubG=AC.createGain();engSubG.gain.value=.30;
+  engSub.connect(engSubG);engSubG.connect(engFilt);engSub.start();
+
+  /* induction roar: noise band that climbs with the revs. Without this an
+     engine under load sounds exactly like an engine idling, only higher. */
+  const inb=AC.createBuffer(1,AC.sampleRate,AC.sampleRate),ic=inb.getChannelData(0);
+  for(let i=0;i<ic.length;i++)ic[i]=Math.random()*2-1;
+  engNoise=AC.createBufferSource();engNoise.buffer=inb;engNoise.loop=true;
+  engNoiseF=AC.createBiquadFilter();engNoiseF.type='bandpass';
+  engNoiseF.frequency.value=340;engNoiseF.Q.value=1.6;
+  engNoiseG=AC.createGain();engNoiseG.gain.value=0;
+  engNoise.connect(engNoiseF);engNoiseF.connect(engNoiseG);engNoiseG.connect(engFilt);
+  engNoise.start();
   /* one second of noise on a loop, band-passed into a tyre squeal. Costs one
      buffer and rides the slip figure the handling model already computes. */
   const n=AC.createBuffer(1,AC.sampleRate,AC.sampleRate),ch=n.getChannelData(0);
@@ -3146,8 +3574,31 @@ function sfx(freq,dur,type,vol){
 }
 /* one noise buffer for the whole session instead of a fresh one per impact */
 let crashBuf=null;
-function sfxCrash(v){
+/* Impacts are audible across the whole city, which is why the street sounds
+   like something is being hit every few seconds for no visible reason.
+
+   Nothing is wrong with the collisions themselves - traffic really is running
+   pedestrians over. updatePeds tests every car against every ped and kills one
+   whenever a car doing over 7m/s passes within 1.9 metres of it, anywhere in
+   the 592-metre map, and killPed played a crash for each. Wrecks exploding do
+   the same. The audio graph has no panner and every voice is wired straight to
+   the destination, so a car park being cleared out six blocks away arrived at
+   exactly the same volume as a bumper hitting a wall in front of you.
+
+   So a crash can say where it happened. With a position it falls off with
+   distance and is dropped entirely past 90 metres - roughly two blocks, which
+   is about as far as you can see down a street anyway. Called without one it
+   is full volume as before, which is what the player's own collisions want. */
+const CRASH_EARSHOT=90;
+function sfxCrash(v,x,z){
  if(!AC||liveVoices>=MAX_VOICES)return;
+ let att=1;
+ if(x!==undefined){
+  const d=Math.hypot(x-player.x,z-player.z);
+  if(d>CRASH_EARSHOT)return;
+  att=1-d/CRASH_EARSHOT;
+  att*=att;                 /* squared: closer to how loudness actually falls */
+ }
  try{
   if(!crashBuf){
    const n=Math.floor(AC.sampleRate*.1);
@@ -3156,7 +3607,7 @@ function sfxCrash(v){
    for(let i=0;i<n;i++)d[i]=(Math.random()*2-1)*Math.pow(1-i/n,2);
   }
   const s=AC.createBufferSource();s.buffer=crashBuf;
-  const g=AC.createGain();g.gain.value=clamp(v*.02,.05,.3);
+  const g=AC.createGain();g.gain.value=clamp(v*.02,.05,.3)*att;
   s.connect(g);g.connect(AC.destination);
   liveVoices++;
   s.onended=()=>voiceDone([s,g]);
@@ -3445,9 +3896,36 @@ function updateAudio(){
      dropping back on each change is most of what an engine sounds like. */
   let gi=0;while(gi<GEARS.length-2&&v>GEARS[gi+1])gi++;
   const rev=clamp((v-GEARS[gi])/(GEARS[gi+1]-GEARS[gi]),0,1);
-  const load=keys.KeyW?1:(keys.KeyS?.25:.5);
-  engOsc.frequency.value=lerp(engOsc.frequency.value,58+rev*128+v*.85,.25);
-  engGain.gain.value=Math.min(.30,.075+rev*.115*load+v*.0022);
+  /* was keys.KeyW / keys.KeyS, so a car driven from the stick idled */
+  const load=ctl.thr>.05?ctl.thr:(ctl.thr<-.05?.25:.5);
+  const V=(c.m&&c.m.userData.kind)?VEHICLES.find(x=>x.name===c.m.userData.kind):null;
+  const P=engineProfile(V)||_defEngine;
+
+  /* Firing frequency: idle, plus the rev fraction within the gear, plus a
+     small term on road speed so a car in top gear is not identical to one
+     pulling away. Smoothed, or every gear change is a click. */
+  const want=P.base+rev*P.span+v*.55;
+  const f=lerp(engOsc.frequency.value,want,.25);
+  engOsc.frequency.value=f;
+  if(engOsc2)engOsc2.frequency.value=f*2;
+  if(engOsc3)engOsc3.frequency.value=f*3;
+  if(engSub) engSub.frequency.value=f*.5;
+
+  /* The filter opening with the revs is what makes it sound like it is
+     working rather than just playing a higher note. Load pushes it further -
+     an engine on part throttle is duller than one flat out at the same rpm. */
+  if(engFilt)engFilt.frequency.value=
+    lerp(engFilt.frequency.value,320+P.cut*(.28+rev*.72)*(.55+load*.45),.18);
+
+  /* Harmonic balance shifts with the revs: the edge comes in at the top. */
+  if(engOsc2G)engOsc2G.gain.value=P.h2*(.55+rev*.45);
+  if(engOsc3G)engOsc3G.gain.value=P.h3*(.20+rev*.80);
+  if(engSubG) engSubG.gain.value=P.sub*(.85-rev*.30);
+  /* induction: quiet at idle, loud under load, and it tracks the note */
+  if(engNoiseG)engNoiseG.gain.value=P.noise*(.10+rev*.55)*(.35+load*.65);
+  if(engNoiseF)engNoiseF.frequency.value=lerp(engNoiseF.frequency.value,240+f*3.2,.15);
+
+  engGain.gain.value=Math.min(.30,P.idle+rev*.125*load+v*.0020);
   if(skidGain)skidGain.gain.value=lerp(skidGain.gain.value,
     Math.min(.12,Math.max(0,(c.slip||0)-2.2)*.024),.2);
  }else{
@@ -3468,6 +3946,9 @@ function updateAudio(){
    are several minutes of it before the light starts to go, and Shift+T still
    locks night for anyone who prefers it. */
 let dayT=.27,nightLock=false;
+/* null = the clock runs; a number = held at exactly that point in the cycle.
+   0 dawn, .25 noon, .46 dusk, .66 night - see updateSky. */
+let timeLock=null;
 /* GTA V daylight feel: richer blue sky, warmer horizon, more golden sun.
    The original palette was tuned for night-only; this widens it so the
    daytime sky has depth and the golden hour burns properly. */
@@ -3488,12 +3969,16 @@ function updateSky(dt){
  /* The whole texture set is baked at night. Rather than a full day/night
     sweep that spends half its time contradicting the art, the clock runs
     dusk -> night -> dawn and skips the glare of midday. T still steps it. */
- dayT=(dayT+dt/1500)%1;
+ /* A time chosen in the settings panel stops the clock outright. */
+ if(timeLock!==null)dayT=timeLock;
+ else dayT=(dayT+dt/1500)%1;
  /* Every texture is baked at night, so by default the clock stays in the
     dark half: 0.55 dusk, 0.75 midnight, 0.93 pre-dawn. T releases the lock so
     you can run a full cycle - daylight will look off against night-lit
     facades, which is exactly why the lock exists. Shift+T restores it. */
- if(nightLock&&(dayT<.55||dayT>.93))dayT=.55;
+ /* ...and a pinned time outranks the night lock, or picking noon would be
+    dragged straight back into the dark half on the very next frame. */
+ if(nightLock&&timeLock===null&&(dayT<.55||dayT>.93))dayT=.55;
  const th=dayT*6.283185,elev=Math.sin(th);
  sunDir.set(Math.cos(th),elev,.35).normalize();
  const dayAmt=clamp((elev+.08)/.33,0,1);
@@ -3538,8 +4023,27 @@ function updateSky(dt){
     goes UP, not down, and the contrast comes from the key being higher
     still. */
   hemi.intensity=.58+dayAmt*.62;
- sun.position.set(player.x+sunDir.x*180,sunDir.y*180+40,player.z+sunDir.z*180);
- sun.target.position.set(player.x,0,player.z);
+ /* ---- texel-snapped shadow centre ----
+    Build the light's own basis, express the centre in it, round to whole
+    shadow texels, and convert back. Snapping in WORLD axes instead would only
+    work while the sun happened to face down an axis. */
+ {
+  const cam=sun.shadow.camera;
+  const texel=(cam.right-cam.left)/Math.max(1,sun.shadow.mapSize.x);
+  /* light forward, then any two perpendicular axes to quantise along */
+  _shF.copy(sunDir).normalize();
+  _shR.set(0,1,0).cross(_shF);
+  if(_shR.lengthSq()<1e-6)_shR.set(1,0,0);        /* sun straight overhead */
+  _shR.normalize();
+  _shU.copy(_shF).cross(_shR).normalize();
+  _shC.set(player.x,0,player.z);
+  const a=Math.round(_shC.dot(_shR)/texel)*texel;
+  const b=Math.round(_shC.dot(_shU)/texel)*texel;
+  const c=_shC.dot(_shF);
+  _shC.set(0,0,0).addScaledVector(_shR,a).addScaledVector(_shU,b).addScaledVector(_shF,c);
+  sun.position.set(_shC.x+sunDir.x*180,sunDir.y*180+40,_shC.z+sunDir.z*180);
+  sun.target.position.set(_shC.x,0,_shC.z);
+ }
  sunSprite.position.copy(sunDir).multiplyScalar(1300);
  sunSprite.material.opacity=dayAmt;
  starMat.opacity=nightAmt;nightAmt01=nightAmt;dayAmt01=dayAmt;
@@ -3574,20 +4078,48 @@ function updateSky(dt){
     daylight; applied to a texture that was already generated in daylight it
     blows the whole city to white. */
  const dayWallGain=.82+dayAmt*.30;
+ /* The reflectance every day wall is normalised toward. 150/255 is roughly a
+    concrete mid-grey and sits near the middle of the pack as generated, so
+    most walls barely move; it is the pale outliers that come down and the two
+    darkest that come up. Clamped either side so normalising can never invert
+    a texture's character - a white building stays the lightest on the street,
+    it just stops clipping when the sun is on it. */
+ const FACADE_TARGET_LUM=150;
  for(const m of facadeMats){
   /* Swap the albedo with the clock, the way the road and kerb already do.
      Until this existed every wall in the city was the night texture - the
      prompts that generated them asked for "night, wet neon reflections in
      magenta and cyan" - so the whole skyline glowed magenta at midday. */
   const u=m.userData;
+  /* Which plate is on the wall is a question about the clock. How hard to
+     light it is a question about how that plate was GENERATED. They were the
+     same expression, and for six walls the answer came out backwards.
+
+     The six newest facades - parking_deck, terracotta, walkup_signs,
+     mirror_green, precast_panel, corporate_steel - were generated for daylight
+     only, so there is no night albedo and both slots were filled with the same
+     day texture. That made dayTex === nightTex, which tripped the "day-only
+     walls have no night set" guard below, which cleared onDay, which handed
+     them dayGain - the 4.4x lift that exists to drag a DARK NIGHT albedo up
+     into daylight. Applied to a plate already generated in daylight, one of
+     them a white precast panel at 186/255 and another a green mirror wall,
+     they clipped to flat white the moment the sun touched them. That is the
+     over-bright white and green buildings, and it is why they were the ones:
+     not because of where they are, but because of which batch they came from.
+
+     So the swap still follows the clock, and the exposure follows hasDay. */
+  const daylight=dayAmt01>.35;
   let onDay=false;
   if(u&&u.dayTex){
-   onDay=dayAmt01>.35;
-   const want=onDay?u.dayTex:u.nightTex;
+   const want=daylight?u.dayTex:u.nightTex;
    if(want&&m.map!==want){m.map=want;m.needsUpdate=true}
-   if(want===u.nightTex)onDay=false;      /* day-only walls have no night set */
+   /* lit as daylight only if what is on the wall was authored as daylight */
+   onDay=daylight&&!!u.hasDay;
   }
-  m.color.setScalar(onDay?dayWallGain:dayGain);
+  if(onDay){
+   const lum=(u&&u.dayLum)||FACADE_TARGET_LUM;
+   m.color.setScalar(dayWallGain*clamp(FACADE_TARGET_LUM/lum,.66,1.12));
+  }else m.color.setScalar(dayGain);
   m.emissiveIntensity=.05+nightAmt*.85;
  }
  for(const m of shopMats){
@@ -3661,6 +4193,8 @@ addEventListener('keydown',e=>{
  keys[e.code]=true;
  if(state==='title'&&(e.code==='Enter'||e.code==='Space')){startGame();return}
  if(e.code==='KeyF'&&state==='play')enterExit();
+ if(e.code==='KeyB'&&state==='play'&&player.mode==='drive'&&player.car&&player.car.tank)
+  fireTank(player.car);
  if(e.code==='KeyE'&&state==='play'&&player.mode==='foot')openAsk();
  if(e.code==='KeyQ'&&state==='play'&&player.mode==='foot')punch();
  if(e.code==='KeyC')camMode=1-camMode;
@@ -3670,6 +4204,9 @@ addEventListener('keydown',e=>{
  if(e.code==='KeyN'&&state==='play')radioNext(1);
  if(e.code==='Digit0'&&state==='play'){radioTune(-1);toast('Radio off')}
  if(e.code==='KeyT'){
+  /* either key releases a time pinned in the settings panel - otherwise the
+     clock would sit frozen and T would look dead */
+  timeLock=null;_timeChoice='cycle';
   if(e.shiftKey){nightLock=true;dayT=.66;toast('Night locked')}
   else{
    if(nightLock){nightLock=false;toast('Free time cycle (Shift+T to re-lock)')}
@@ -3680,10 +4217,8 @@ addEventListener('keydown',e=>{
  if(e.code==='F3'){e.preventDefault();perfOn=!perfOn;perfEl.classList.toggle('hidden',!perfOn)}
  if(e.code==='F4'){e.preventDefault();profDump()}
  if(e.code==='KeyG'){autoQual=false;qual=(qual+1)%TIERS.length;applyQual()}
- if(e.code==='Escape'||e.code==='KeyP'){
-  if(state==='play'){state='pause';pauseEl.classList.remove('hidden');if(locked)document.exitPointerLock()}
-  else if(state==='pause'){state='play';pauseEl.classList.add('hidden');wantLock()}
- }
+ /* Escape is handled in the capture listener next to the menu, so that one
+    place decides whether it means "open", "go back" or "close". */
 });
 addEventListener('keyup',e=>{keys[e.code]=false});
 const keys={};
@@ -3702,6 +4237,11 @@ const CAM_MIN_P=-.52, CAM_MAX_P=1.05;
 const cvEl=$('c');
 
 function wantLock(){
+ /* There is no cursor to capture on a phone, and asking for one costs a
+    rejected promise on every tap. More to the point, the desktop build treats
+    "lost the lock" as "pause", so a build that never acquires one would pause
+    itself the moment it started. */
+ if(TOUCH)return;
  if(locked||state!=='play')return;
  const r=cvEl.requestPointerLock&&cvEl.requestPointerLock({unadjustedMovement:true});
  if(r&&r.catch)r.catch(()=>{try{cvEl.requestPointerLock()}catch(e){}});
@@ -3730,6 +4270,498 @@ cvEl.addEventListener('mousedown',e=>{
  if(!locked){wantLock();return}
  if(e.button===0&&player.mode==='foot')punch();
 });
+
+/* ================= TOUCH CONTROLS =================
+   A phone has no pointer to lock, no keyboard and no scroll wheel, which is
+   three of the four input channels the desktop build runs on. Rather than
+   emulate keys - a stick that can only say "W" steers like a keyboard, which
+   is the thing that makes browser driving games feel broken - the stick is
+   read as an analogue pair and folded into the same control values the keys
+   produce, through readControls() below. Sprint on foot comes off stick
+   deflection instead of a button: push it to the edge and you run.
+
+   Detection is by pointer type, not by user-agent string or screen width. A
+   Windows laptop with a touchscreen reports a FINE primary pointer and must
+   keep the desktop controls; a phone reports coarse. ?touch=1 and ?touch=0
+   force it either way, which is the only way to test this from a desktop. */
+const TOUCH=(()=>{
+ const q=new URLSearchParams(location.search).get('touch');
+ if(q==='1')return true;
+ if(q==='0')return false;
+ try{return matchMedia('(pointer:coarse)').matches}catch(e){return false}
+})();
+const touchEl=$('touch'),stickEl=$('stick'),knobEl=$('knob');
+/* -1..1 per axis; y is positive DOWN the screen, the way the event is */
+const tMove={x:0,y:0};
+let tMoveId=-1,tLookId=-1,tLookX=0,tLookY=0,tHand=false;
+const STICK_R=52, TOUCH_LOOK=.0045;
+
+if(TOUCH)document.body.classList.add('touch');
+
+function stickReset(){tMove.x=tMove.y=0;knobEl.style.transform='translate(0,0)'}
+function stickTo(cx,cy){
+ const r=stickEl.getBoundingClientRect();
+ let dx=cx-(r.left+r.width/2), dy=cy-(r.top+r.height/2);
+ const d=Math.hypot(dx,dy);
+ if(d>STICK_R){dx=dx/d*STICK_R;dy=dy/d*STICK_R}
+ tMove.x=dx/STICK_R;tMove.y=dy/STICK_R;
+ knobEl.style.transform='translate('+dx+'px,'+dy+'px)';
+}
+
+/* Pointer events, not touch events: one code path covers finger, stylus, and a
+   desktop mouse when ?touch=1 has forced the layer on for testing. */
+touchEl.addEventListener('pointerdown',e=>{
+ if(state!=='play')return;
+ const r=stickEl.getBoundingClientRect();
+ /* The stick answers to a generous rectangle around itself, not just the ring.
+    A thumb reaching for the bottom-left corner of a phone rarely lands inside
+    a 136px circle first time, and a stick that ignores the first touch reads
+    as an unresponsive game rather than as a near miss. */
+ if(tMoveId<0 && e.clientX<r.right+52 && e.clientY>r.top-52){
+  tMoveId=e.pointerId;stickTo(e.clientX,e.clientY);e.preventDefault();return;
+ }
+ /* anything else on the layer is a look drag */
+ if(tLookId<0){tLookId=e.pointerId;tLookX=e.clientX;tLookY=e.clientY;e.preventDefault()}
+},{passive:false});
+
+touchEl.addEventListener('pointermove',e=>{
+ if(e.pointerId===tMoveId){stickTo(e.clientX,e.clientY);e.preventDefault();return}
+ if(e.pointerId===tLookId){
+  const dx=e.clientX-tLookX, dy=e.clientY-tLookY;
+  tLookX=e.clientX;tLookY=e.clientY;
+  camYaw-=dx*TOUCH_LOOK;
+  camPitch=clamp(camPitch+(invertY?-1:1)*dy*TOUCH_LOOK*.82,CAM_MIN_P,CAM_MAX_P);
+  if(camYaw> Math.PI*2)camYaw-=Math.PI*2;
+  if(camYaw<-Math.PI*2)camYaw+=Math.PI*2;
+  mouseIdle=0;
+  e.preventDefault();
+ }
+},{passive:false});
+
+const tRelease=e=>{
+ if(e.pointerId===tMoveId){tMoveId=-1;stickReset()}
+ else if(e.pointerId===tLookId)tLookId=-1;
+};
+touchEl.addEventListener('pointerup',tRelease);
+touchEl.addEventListener('pointercancel',tRelease);
+
+/* A button swallows its own pointer so it can never also start a look drag. */
+function bindBtn(el,down,up){
+ el.addEventListener('pointerdown',e=>{
+  e.stopPropagation();e.preventDefault();
+  el.classList.add('press');
+  if(down)down();
+ },{passive:false});
+ const off=e=>{
+  e.stopPropagation();
+  if(!el.classList.contains('press'))return;
+  el.classList.remove('press');
+  if(up)up();
+ };
+ el.addEventListener('pointerup',off);
+ el.addEventListener('pointercancel',off);
+ el.addEventListener('pointerleave',off);
+}
+bindBtn($('bAct'),
+ ()=>{if(state!=='play')return;
+      if(player.mode!=='drive'){punch();return}
+      /* in a tank the big button is the gun; in a helicopter it is the
+         collective; in anything else it is still the handbrake */
+      if(player.car&&player.car.tank){fireTank(player.car);return}
+      tHand=true;},
+ ()=>{tHand=false});
+bindBtn($('bEnter'),()=>{if(state==='play')enterExit()});
+bindBtn($('bAux'),()=>{
+ if(state!=='play')return;
+ if(player.mode==='drive')camMode=1-camMode; else openAsk();
+});
+bindBtn($('bMap'),()=>{toggleMap()});
+bindBtn($('bPause'),()=>{
+ if(state==='play'){state='pause';pauseEl.classList.remove('hidden')}
+ else if(state==='pause'){state='play';pauseEl.classList.add('hidden')}
+});
+
+/* Labels follow the mode, because the same thumb position means "punch" on
+   foot and "handbrake" in a car. Cheap enough to poll, and polling means it
+   cannot fall out of step with a mode change made somewhere else. */
+let _tMode='',_tOn=null;
+function syncTouchUI(){
+ if(!TOUCH)return;
+ const on=(state==='play');
+ if(on!==_tOn){_tOn=on;touchEl.classList.toggle('on',on);if(!on){stickReset();tHand=false}}
+ const _tKey=player.mode+':'+((player.car&&player.car.kind)||'-');
+ if(_tKey!==_tMode){
+  _tMode=_tKey;
+  const drive=player.mode==='drive';
+  const inTank=drive&&player.car&&player.car.tank;
+  const inHeli=drive&&player.car&&player.car.heli;
+  $('bAct').textContent=inTank?'FIRE':(inHeli?'LIFT':(drive?'BRAKE':'PUNCH'));
+  $('bAux').textContent=drive?'CAM':'ASK';
+  $('bEnter').textContent=drive?'EXIT':'ENTER';
+ }
+}
+
+/* ---- portrait gate ----
+   Held upright there is not enough width for a stick, a button cluster and a
+   view between them, so the game stops rather than being played badly. It
+   pauses itself rather than just covering the screen - coming back to a car
+   that kept driving into a wall while the phone was upright is worse than the
+   pause - and un-pauses only if IT was the thing that paused. */
+let _tAutoPaused=false;
+function checkOrient(){
+ if(!TOUCH)return;
+ const portrait=innerHeight>innerWidth;
+ document.body.classList.toggle('portrait',portrait);
+ if(portrait){
+  if(state==='play'){state='pause';pauseEl.classList.add('hidden');_tAutoPaused=true;stickReset();tHand=false}
+ }else if(_tAutoPaused){
+  _tAutoPaused=false;
+  if(state==='pause')state='play';
+ }
+}
+if(TOUCH){
+ $('mapHint').textContent='tap outside to close';
+ addEventListener('resize',checkOrient);
+ addEventListener('orientationchange',()=>setTimeout(checkOrient,260));
+ checkOrient();
+ $('start').textContent='TAP TO START';
+ $('pauseHint').textContent='TAP TO RESUME';
+}
+/* ================= /TOUCH CONTROLS ================= */
+
+/* ================= SETTINGS =================
+   Everything here was already reachable from the keyboard - G cycles the
+   quality tier, R toggles rain, T steps the clock - which is no use at all on
+   a phone. Same state, same variables, just given a surface you can touch.
+
+   The panel pauses while it is open. Rendering carries on regardless (the
+   draw at the end of tick is outside the state check), so changing the
+   weather or the time shows you the result live, but nothing drives into a
+   wall while you are reading the menu. */
+const setW=$('setW');
+let setOpen=false,_setPaused=false;
+
+/* One panel, several pages. ESC lands on the root; everything else hangs off
+   it, so there is exactly one way in and the HUD does not have to carry a
+   permanent button or a permanent wall of key hints. */
+const SET_PAGES={root:'PAUSED',guide:'HOW TO PLAY',cheats:'CHEATS & OPTIONS',spawn:'SPAWN A VEHICLE'};
+let setPage='root';
+function showPage(p){
+ if(p==='resume'){closeSettings();return}
+ setPage=SET_PAGES[p]?p:'root';
+ for(const k in SET_PAGES){
+  const el=$('pg'+k.charAt(0).toUpperCase()+k.slice(1));
+  if(el)el.classList.toggle('hidden',k!==setPage);
+ }
+ $('setTitle').textContent=SET_PAGES[setPage];
+ if(setPage==='spawn')buildSpawnMenu();
+ if(setPage==='guide')buildGuide();
+ if(setPage==='cheats')syncSettings();
+ /* a long list should not open half-scrolled from last time */
+ const p2=$('setP'); if(p2)p2.scrollTop=0;
+}
+/* every page's buttons route through one handler */
+$('setP').addEventListener('click',e=>{
+ const el=e.target.closest('[data-go]');
+ if(!el)return;
+ e.stopPropagation();
+ showPage(el.dataset.go);
+});
+
+/* ---- the guide ----
+   This used to be a single line of text jammed along the bottom of the screen
+   at all times. It is reference material: you want it once, when you are
+   learning, not permanently across the bottom of the road. */
+let _guideBuilt=false;
+function buildGuide(){
+ if(_guideBuilt)return;
+ _guideBuilt=true;
+ const kb=[
+  ['On foot',[
+   ['W A S D','Walk'],['SHIFT','Sprint'],['MOUSE','Look around'],
+   ['F','Get in / out of a vehicle'],['CLICK or Q','Punch'],['E','Ask a witness what they saw']]],
+  ['Driving',[
+   ['W / S','Throttle / brake and reverse'],['A / D','Steer'],
+   ['SPACE','Handbrake'],['C','Change camera']]],
+  ['Helicopter',[
+   ['SPACE','Collective - hold to climb, release to descend'],
+   ['W / S','Tilt forward / slow down'],['A / D','Yaw'],
+   ['F','Get out (land first)']]],
+  ['Tank',[['B','Fire the main gun']]],
+  ['World',[
+   ['M','Map'],['[ ]','Change radio station'],['N','Skip track'],
+   ['T','Skip time forward'],['SHIFT+T','Lock to night'],['R','Toggle rain'],
+   ['G','Cycle graphics tier'],['F3','Performance overlay'],['F4','Profile dump'],
+   ['ESC','This menu']]]
+ ];
+ const touch=[
+  ['Touch controls',[
+   ['Left stick','Walk, drive, or fly'],
+   ['Drag right','Look around'],
+   ['Big button','Punch, handbrake, tank gun, or helicopter collective'],
+   ['ENTER','Get in or out'],['MAP','Open the map'],['ASK / CAM','Ask a witness, or change camera']]]
+ ];
+ const use=TOUCH?touch.concat(kb.slice(4)):kb;
+ $('guideKeys').innerHTML=use.map(([title,rows])=>
+   '<section><h4>'+title+'</h4>'+
+   rows.map(([k,d])=>'<div class="row"><span>'+k+'</span>'+d+'</div>').join('')+
+   '</section>').join('');
+}
+
+/* Pixel ratio is the sharpest lever on frame rate - it scales every fragment
+   and every post pass - so it is exposed on its own rather than being buried
+   inside the quality tier. Kept separate from TIERS[qual].pr: choosing a tier
+   resets it to that tier's default, and changing it afterwards overrides. */
+let prOverride=null;
+function applyPixelRatio(){
+ const want=prOverride!==null?prOverride:TIERS[qual].pr;
+ renderer.setPixelRatio(Math.min(devicePixelRatio,want));
+ if(composer)composer.setSize(innerWidth,innerHeight);
+}
+
+function segPick(id,val){
+ /* Compare as numbers where both sides are numeric: the markup says ".7" and
+    TIERS says 0.7, and String(0.7) is "0.7", so a plain string compare never
+    matches and the row shows nothing selected. */
+ const norm=v=>{const n=Number(v);return (v!==''&&v!==null&&!isNaN(n))?String(n):String(v)};
+ const want=norm(val);
+ for(const el of $(id).children){
+  const dv=el.dataset[Object.keys(el.dataset)[0]];
+  el.classList.toggle('on',norm(dv)===want);
+ }
+}
+function syncSettings(){
+ segPick('segQual',autoQual?'auto':String(qual));
+ segPick('segRes',prOverride!==null?String(prOverride):String(TIERS[qual].pr));
+ segPick('segWx',rainOn?'1':'0');
+ /* the user's choice, not nightLock - every fixed time sets nightLock, so
+    reading it back would light up NIGHT whichever one was picked */
+ segPick('segTime',_timeChoice||'cycle');
+ const car=(player.mode==='drive'&&player.car&&player.car.m)?player.car.m.userData.kind:null;
+ $('setNow').innerHTML=
+  'Tier <em>'+TIERS[qual].n+'</em>'+(autoQual?' (auto)':' (locked)')+
+  ' &middot; render <em>'+Math.round(renderer.getPixelRatio()*100)+'%</em><br>'+
+  /* dayT 0 is sunrise, not midnight - elevation is sin(dayT*2PI) - so the
+     clock face is six hours ahead of the raw cycle position. Without the
+     offset the readout calls noon "06.0h". */
+  'Clock <em>'+((dayT*24+6)%24).toFixed(1).padStart(4,'0')+'h</em>'+(timeLock!==null?' (held)':' (running)')+'<br>'+
+  'Driving: <em>'+(car||'on foot')+'</em>'+(car&&flippedSet().has(car)?' (turned)':'')+'<br>'+
+  'Keys: G graphics &middot; R rain &middot; T time &middot; F3 stats';
+}
+let _timeChoice='cycle';
+
+function openSettings(){
+ if(setOpen||state==='title')return;
+ /* they have found it; stop telling them */
+ const hp=$('hint'); if(hp)hp.classList.add('faded');
+ setOpen=true;
+ setW.classList.remove('hidden');
+ if(state==='play'){state='pause';_setPaused=true;if(locked)document.exitPointerLock()}
+ showPage('root');
+}
+function closeSettings(){
+ if(!setOpen)return;
+ setOpen=false;
+ setW.classList.add('hidden');
+ if(_setPaused){_setPaused=false;if(state==='pause'){state='play';wantLock()}}
+}
+/* The spawn list is generated rather than hand-written, so a model added to
+   any of the loaders turns up here with no extra work - including the two
+   that never appear on the roads. */
+let _spawnBuilt=false;
+function buildSpawnMenu(){
+ const box=$('segSpawn');
+ if(!box)return;
+ box.innerHTML='';
+ /* spawn-only first: they are the reason most people open this */
+ const order=VEHICLES.map((v,i)=>({v,i}))
+   .sort((a,b)=>(b.v.spawnOnly?1:0)-(a.v.spawnOnly?1:0));
+ for(const {v,i} of order){
+  const el=document.createElement('i');
+  el.dataset.k=String(i);
+  if(v.spawnOnly)el.className='rare';
+  /* a word about what it is, so the list is readable rather than 19 names */
+  const d=v.dims||{}, h=v.handling||{};
+  let note;
+  if(v.heli)note='AIRCRAFT';
+  else if(v.tank)note='ARMOUR';
+  else if((h.max||0)>=45)note='FAST';
+  else if((d.l||0)>4.8||(d.h||0)>1.68)note='HEAVY';
+  else note=Math.round(h.max||40)+' TOP';
+  el.innerHTML='<b style="font-weight:700">'+v.name.toUpperCase()+'</b><em>'+note+'</em>';
+  box.appendChild(el);
+ }
+ _spawnBuilt=true;
+}
+function spawnVehicle(kind){
+ const V=VEHICLES[kind];
+ if(!V)return;
+ /* put it beside the player, clear of whatever they are standing in, facing
+    the way they are looking */
+ const yaw=camYaw;
+ const fx=Math.sin(yaw), fz=Math.cos(yaw);
+ /* far enough out that a 13m rotor disc is not already inside the player or
+    whatever they are standing next to */
+ const dist=(V.dims&&V.dims.l?V.dims.l:4.5)*.8+(V.heli?8:4);
+ const c=addCar({x:player.x+fx*dist, z:player.z+fz*dist, h:yaw,
+                 color:pick(CARCOLS), kind, ai:null});
+ c.alt=0;
+ syncCar(c);
+ toast('Spawned '+V.name+(V.heli?' - hold SPACE to lift off':V.tank?' - B to fire':''),'cash');
+ return c;
+}
+$('segSpawn').addEventListener('click',e=>{
+ const el=e.target.closest('i');if(!el)return;
+ spawnVehicle(+el.dataset.k);
+ closeSettings();
+});
+
+$('btnFlip').addEventListener('click',()=>{
+ if(player.mode!=='drive'||!player.car||!player.car.m){toast('Get into the car first','warn');return}
+ const name=player.car.m.userData.kind;
+ const done=flipVehicleByName(name);
+ if(!done){toast('Could not identify that body style','warn');return}
+ /* remember, or forget again if this is a second press undoing the first */
+ const was=flippedSet().has(name);
+ rememberFlip(name,!was);
+ rebuildAllCars();
+ toast('Turned '+name+' round'+(was?' (back)':'')+' - tell Claude: '+name,'cash');
+ syncSettings();
+});
+$('gear').addEventListener('click',()=>{setOpen?closeSettings():openSettings()});
+$('setX').addEventListener('click',closeSettings);
+setW.addEventListener('click',e=>{if(e.target===setW)closeSettings()});
+
+$('segQual').addEventListener('click',e=>{
+ const el=e.target.closest('i');if(!el)return;
+ const q=el.dataset.q;
+ if(q==='auto'){autoQual=true}
+ else{autoQual=false;qual=+q;prOverride=null;applyQual()}
+ applyPixelRatio();
+ syncSettings();
+});
+$('segRes').addEventListener('click',e=>{
+ const el=e.target.closest('i');if(!el)return;
+ prOverride=+el.dataset.r;
+ /* a hand-picked resolution is a decision the auto-governor must not undo */
+ autoQual=false;
+ applyPixelRatio();
+ syncSettings();
+});
+$('segWx').addEventListener('click',e=>{
+ const el=e.target.closest('i');if(!el)return;
+ rainOn=el.dataset.w==='1';
+ syncSettings();
+});
+$('segTime').addEventListener('click',e=>{
+ const el=e.target.closest('i');if(!el)return;
+ const t=el.dataset.t;
+ _timeChoice=t;
+ if(t==='cycle'){timeLock=null;nightLock=false}
+ else{timeLock=+t;dayT=+t;nightLock=false}
+ syncSettings();
+});
+/* the panel is the one bit of UI that has to answer while the game is paused */
+addEventListener('keydown',e=>{
+ if(e.code!=='Escape'&&e.code!=='KeyP'&&e.code!=='KeyO')return;
+ e.preventDefault();e.stopPropagation();
+ if(!setOpen){
+  /* the pointer-lock overlay and the menu are the same idea; show the menu */
+  if(pauseEl)pauseEl.classList.add('hidden');
+  if(state==='pause')state='play';      /* so openSettings pauses it properly */
+  openSettings();
+  return;
+ }
+ /* open: step back a page, and only close from the root */
+ if(setPage!=='root')showPage(setPage==='spawn'?'cheats':'root');
+ else closeSettings();
+},true);
+/* Body styles the player has turned round, remembered across loads. */
+const FLIP_KEY='sta.flippedVehicles';
+function flippedSet(){
+ try{return new Set(JSON.parse(localStorage.getItem(FLIP_KEY)||'[]'))}catch(e){return new Set()}
+}
+function rememberFlip(name,on){
+ try{
+  const s=flippedSet();
+  if(on)s.add(name); else s.delete(name);
+  localStorage.setItem(FLIP_KEY,JSON.stringify([...s]));
+ }catch(e){}
+}
+
+/* Turn one body style through 180 degrees. Returns its name, or null. */
+function flipVehicleByName(name){
+ const V=VEHICLES.find(v=>v.name===name);
+ if(!V)return null;
+ /* Anything another vehicle also points at is shared and must not be turned. */
+ const shared=new Set();
+ for(const o of VEHICLES){
+  if(o===V)continue;
+  for(const k in o)if(o[k]&&o[k].isBufferGeometry)shared.add(o[k]);
+ }
+ const turn=new THREE.Matrix4().makeRotationY(Math.PI);
+ const seen=new Set();
+ for(const k of ['geoBody','geoHi','geoGlass','geoOptics','geoWheelHi']){
+  const g=V[k];
+  if(!g||!g.isBufferGeometry||shared.has(g)||seen.has(g))continue;
+  /* geoWheelHi is a single hub spun about its own centre - turning it is
+     harmless but pointless, and it is listed only so a body that happens to
+     carry a one-sided wheel does not end up inside out. */
+  seen.add(g);
+  g.applyMatrix4(turn);
+  g.computeVertexNormals();
+ }
+ /* hub positions mirror with the body, and which pair is the front changes */
+ for(const list of [V.wheelSpec,V.namedWheels]){
+  if(!list)continue;
+  for(const w of list){w.x=-w.x;w.z=-w.z;if('front'in w)w.front=w.z>0}
+  list.sort((a,b)=>b.z-a.z);          /* stepCar steers wheels[0] and [1] */
+ }
+ return V.name;
+}
+
+/* Apply anything remembered from a previous session. Runs once, after every
+   loader has registered, because a name cannot be matched before then. */
+function applyRememberedFlips(){
+ const s=flippedSet();
+ if(!s.size)return 0;
+ let n=0;
+ for(const name of s)if(flipVehicleByName(name))n++;
+ return n;
+}
+/* ================= /SETTINGS ================= */
+
+/* ---- one reading of the controls per frame ----
+   Four places used to ask the keyboard directly: the walk code, the drive
+   code, the engine note and the brake lights. Adding a second input device to
+   four independent expressions is how they drift apart - brake lights that
+   only answer to the key, an engine that idles while the stick is buried. So
+   the frame reads the controls once, here, and those four read this. */
+const ctl={thr:0,steer:0,hand:false,mx:0,mz:0,mag:0,sprint:false};
+function readControls(){
+ const kThr=(keys.KeyW?1:0)-(keys.KeyS?1:0);
+ const kSteer=(keys.KeyA?1:0)-(keys.KeyD?1:0);
+ const kx=(keys.KeyD?1:0)-(keys.KeyA?1:0);
+ ctl.hand=!!keys.Space||tHand;
+ if(TOUCH&&(tMove.x||tMove.y)&&!kThr&&!kSteer){
+  /* Dead zone kills thumb tremor at rest. The 1.35 gain means the outer third
+     of the ring is all full lock, so you do not have to find the exact edge of
+     a circle you cannot feel in order to get full throttle or full steering. */
+  const dz=v=>Math.abs(v)<.16?0:v;
+  const sx=dz(tMove.x), sy=dz(tMove.y);
+  ctl.thr=clamp(-sy*1.35,-1,1);
+  ctl.steer=clamp(-sx*1.35,-1,1);
+  ctl.mx=sx;ctl.mz=-sy;
+  ctl.mag=Math.min(1,Math.hypot(sx,sy)*1.12);
+  /* no sprint button: bury the stick and you run */
+  ctl.sprint=ctl.mag>.93&&ctl.mz>=0;
+ }else{
+  ctl.thr=kThr;ctl.steer=kSteer;
+  ctl.mx=kx;ctl.mz=kThr;
+  ctl.mag=(kx||kThr)?1:0;
+  ctl.sprint=!!(keys.ShiftLeft||keys.ShiftRight)&&kThr>=0;
+ }
+}
 
 /* how much room the shot needs, per mode */
 function camRig(){
@@ -3942,9 +4974,18 @@ let parkedMesh=null;
 
 /* ---- distant skyline so the horizon is a city, not an edge ---- */
  const far=[];
+ /* The ring used to start at GS/2 + 60. GS/2 IS the beach - the island stops
+    there - so sixty metres out put unlit boxes in the surf, close enough to
+    be read as geometry rather than as distance: a flat blue slab sitting in
+    the water between the coast road and the horizon, which is the "blank blue
+    box" glitch. A skyline has to be far enough away that no parallax against
+    the shoreline is visible, so it starts well past the water now.
+
+    Pushing it out costs apparent size, so the boxes grow to compensate: at
+    600-1000m a 40m block subtends less than a 25m one did at 350m. */
  for(let k=0;k<150;k++){
-  const a=rand(6.283),r=GS/2+rand(60,300);
-  const w=rand(14,42),d=rand(14,42),h=rand(25,150);
+  const a=rand(6.283),r=GS/2+rand(340,760);
+  const w=rand(22,62),d=rand(22,62),h=rand(45,215);
   far.push(new THREE.BoxGeometry(w,h,d).translate(Math.cos(a)*r,h/2,Math.sin(a)*r));
  }
  /* Unlit and fog-tinted so it reads as distance, not as grey boxes parked
@@ -4202,6 +5243,8 @@ envTex.colorSpace=THREE.SRGBColorSpace;
 envTex.needsUpdate=true;
 scene.environment=envTex;
 let envAcc=0;
+/* Quantised sky state at the last env rebuild; -1 forces the first one. */
+let _envKey=-1;
 const _eTop=new THREE.Color(),_eHor=new THREE.Color(),_eMix=new THREE.Color();
 const cityGlow=new THREE.Color(0xff9a4a), warmBounce=new THREE.Color(0x8a7a66), sunSpecColor=new THREE.Color(0xfffaea);
 const _dirVec=new THREE.Vector3();
@@ -4233,7 +5276,17 @@ function updateEnv(){
      const corona=Math.pow(sDot,12)*1.4*dayAmt01;
      const core=Math.pow(sDot,64)*4.5*dayAmt01;
      _eMix.lerp(sunSpecColor,Math.min(1,corona*.6+core));
-     _eMix.addScaledVector(sunSpecColor,corona*.8+core*1.5);
+     /* addScaledVector is a Vector3 method; THREE.Color does not have one, so
+        this threw a TypeError out of updateEnv and took the rest of the frame
+        with it - every time the sun was above the horizon and the cell being
+        written faced within about 45 degrees of it. That is most of the sky,
+        most of the day, which is why the wet-road and ocean reflections never
+        looked like they were tracking the sun: the env map was being abandoned
+        part-written. Done componentwise; the clamp to 0-255 is just below. */
+     const gl=corona*.8+core*1.5;
+     _eMix.r+=sunSpecColor.r*gl;
+     _eMix.g+=sunSpecColor.g*gl;
+     _eMix.b+=sunSpecColor.b*gl;
     }
    }
    const r=Math.min(255,Math.max(0,_eMix.r*255))|0,g=Math.min(255,Math.max(0,_eMix.g*255))|0,b=Math.min(255,Math.max(0,_eMix.b*255))|0;
@@ -4344,7 +5397,7 @@ let gtaoPass=null;
      whole walls and the city goes muddy. */
   gtaoPass.updateGtaoMaterial({radius:0.42,distanceExponent:1.6,thickness:1.0,
                                scale:1.0,samples:12,screenSpaceRadius:false});
-  gtaoPass.blendIntensity=0.85;
+  gtaoPass.blendIntensity=0.40;
   gtaoPass.enabled=!!TIERS[qual].ao;
   /* before bloom, so an occluded corner cannot bloom back out again */
   composer.insertPass(gtaoPass,1);
@@ -4379,8 +5432,14 @@ function nearestPuddle(x,z){
 }
 function updateFX(dt){
  fxTime+=dt;
- /* rebuilding this forces a PMREM pass; 2s is plenty for a sky that moves slowly */
- envAcc+=dt; if(envAcc>2){envAcc=0;updateEnv()}
+ /* Rebuilding forces a PMREM pass, so it is driven by the sky actually
+    changing rather than by the clock. See the note on _envKey. */
+ envAcc+=dt;
+ if(envAcc>1.5){
+  envAcc=0;
+  const key=(dayAmt01*20|0)*64+(nightAmt01*20|0)*2+(rainOn?1:0);
+  if(key!==_envKey){_envKey=key;updateEnv()}
+ }
 
  wetTarget=rainOn?1:0;
  wet+=(wetTarget-wet)*dt*(rainOn?.55:.12);
@@ -4398,15 +5457,21 @@ function updateFX(dt){
    const wantMap=(dayAmt01>.35)?roadDayTex:roadNightTex;
    if(roadMat.map!==wantMap){roadMat.map=wantMap;roadMat.needsUpdate=true}
   }
-  /* dry asphalt is genuinely rough - it only goes glossy when it is wet.
-     With a roughness MAP now present these become multipliers on it, so the
-     dry end sits at 1.0 and lets the map do the talking. */
-   roadMat.roughness=lerp(1,.32,wet);
+  /* Dry asphalt is rough, but it is not chalk. A dielectric with NO specular
+     response at all is the single thing that most stops a road reading as a
+     real surface: what you actually see on tarmac is a broad, weak sheen that
+     picks up the sky at a grazing angle, which is why a road photographs pale
+     towards the horizon and dark underfoot. The dry end used to sit at
+     roughness 1.0 with almost no environment, so there was nothing for the
+     sun to catch and nothing for the burnished tyre tracks to be smoother
+     than. Pulled back just far enough to get that sheen without turning the
+     street wet - the actual wet look is still a long way further along. */
+   roadMat.roughness=lerp(.93,.32,wet);
    roadMat.metalness=lerp(0.0,.22,wet);
-   roadMat.envMapIntensity=lerp(.18,1.6,wet)*(1+nightAmt01*.40);
+   roadMat.envMapIntensity=lerp(.42,1.6,wet)*(1+nightAmt01*.40);
    roadMat.color.setScalar(lerp(1,.68,wet));
    /* relief flattens out as the surface floods, rather than vanishing when dry */
-   if(roadMat.normalMap){const n=lerp(1.40,.45,wet);roadMat.normalScale.set(n,n)}
+   if(roadMat.normalMap){const n=lerp(1.75,.45,wet);roadMat.normalScale.set(n,n)}
    /* standing water fills the pores, so the dry grit fades out as it rains */
    if(roadMat.userData.u)roadMat.userData.u.wet.value=wet;
  }
@@ -4439,7 +5504,7 @@ function updateFX(dt){
   _brakeCar=drv;
  }
  if(drv&&_brakeMat){
-  const braking=keys.KeyS&&drv.vf>.5, reversing=drv.vf<-.5, hand=!!keys.Space;
+  const braking=ctl.thr<-.05&&drv.vf>.5, reversing=drv.vf<-.5, hand=ctl.hand;
   const lit=(braking||hand)?1:(reversing?.55:0);
   _brakeGlow+=((lit)-_brakeGlow)*Math.min(1,18*dt);
   _brakeMat.color.copy(tailDay).lerp(tailNight,nightAmt01);
@@ -4499,7 +5564,13 @@ function updateFX(dt){
   /* Bloom: tight in daylight (specular only), generous at night (neon glow),
      and a wider radius so highlights bleed softly rather than hard-edging */
   bloomPass.strength=.22+night*.42+wet*.14;
-  bloomPass.threshold=lerp(1.20,.84,night);
+  /* 1.20 against an exposure of 1.22 means a sunlit pale wall crosses the
+     bloom threshold on diffuse alone, and a wall that blooms is a wall that
+     has already clipped - the glow was a symptom of item 1, not a look. The
+     daylight threshold now sits above anything diffuse can reach, so only
+     genuine speculars (chrome, glass, the sun off wet tarmac) bloom by day.
+     The night figure is untouched: neon is supposed to glow. */
+  bloomPass.threshold=lerp(1.46,.84,night);
   bloomPass.radius=.82;
   const gu=gradePass.uniforms;
   gu.time.value=fxTime;
@@ -4524,8 +5595,25 @@ function updateFX(dt){
 /* ---- perf overlay (F3) ---- */
 const perfEl=$('perf');
 let perfOn=false,perfAcc=0,perfFrames=0,perfFps=0,frameCalls=0,frameTris=0,autoQual=true;
-let shadowTick=0;const SHADOW_EVERY=3;
-let frameWorst=0,perfWorstMs=0,simMs=0,renderMs=0;
+let shadowTick=0;
+/* How often the shadow map is rebuilt, in frames. Every third was chosen when
+   the only thing moving was the sun, which crosses the sky over ten minutes
+   and genuinely does not need 60Hz. Cars do. Under way, the map refreshes
+   every frame so a moving vehicle's shadow stays under the vehicle; parked or
+   on foot it falls back, because then nothing in shot is moving fast enough
+   to tell. There is room for this: the frame is three quarters idle. */
+function shadowEvery(){
+ const v=player.mode==='drive'?Math.abs(player.car?player.car.sp:0):Math.hypot(player.vx,player.vz);
+ return v>5?2:3;
+}
+/* The radar redraws on alternate frames. It is a 190px widget showing a city
+   block either side of you; at 30Hz nobody can tell, and it is pure CPU that
+   the graphics settings cannot touch. */
+let radarTick=false;
+let frameWorst=0,perfWorstMs=0,simMs=0,renderMs=0,waitMs=0;
+/* Bump this whenever something visible changes, so a stale cache is instantly
+   obvious instead of looking like a fix that did not work. */
+const BUILD='esc-menu-1';
 /* ---- rolling profiler ----
    Every counter that can be inspected from outside the running game says the
    simulation is stable: scene objects, geometries, textures, shader programs,
@@ -4679,6 +5767,8 @@ function updatePerf(dt){
  perfEl.textContent=
   perfFps.toFixed(0).padStart(3)+' fps   '+(1000/Math.max(perfFps,.1)).toFixed(1)+' ms  worst '+perfWorstMs.toFixed(0)+'\n'+
   'sim '+simMs.toFixed(2)+' gpu '+renderMs.toFixed(2)+'  draws '+frameCalls+'\n'+
+  'wait '+waitMs.toFixed(2)+'  (gpu catch-up / vsync)\n'+
+  'build  '+BUILD+'\n'+
   'tris   '+(frameTris/1000).toFixed(1)+'k\n'+
   'progs  '+i.programs.length+'   tex '+i.memory.textures+'\n'+
   'cars   '+cars.filter(c=>!c.gone).length+'   peds '+peds.length+'\n'+
@@ -4811,6 +5901,19 @@ async function applyTexturePack(){
 
   m.userData.dayTex=day||alb;
   m.userData.nightTex=alb||day;
+  /* Whether the day slot holds a REAL day plate, as opposed to a night plate
+     standing in for one. The two cases need opposite exposure and there is no
+     way to tell them apart later: both end up as a texture in .dayTex. */
+  m.userData.hasDay=!!day;
+  /* What a wall reflects is a property of its texture, not of the city, and
+     these eighteen do not agree with each other. Measured mean luminance
+     across the pack runs from 111 (tower_dark) to 206 (deco_pastel) - the
+     white precast and brutalist plates sit at 186. Lighting them all with one
+     gain means whatever exposure suits the dark end blows the pale end out the
+     moment the sun is on it, which is the handful of walls that go to flat
+     white. Record the mean here so the day gain can be per material. */
+  const lumSrc=(day&&day.image)||(alb&&alb.image);
+  if(lumSrc)m.userData.dayLum=meanLuma(lumSrc);
   if(m.map)m.map.dispose();
   m.map=m.userData.dayTex;
 
@@ -4855,8 +5958,18 @@ async function applyTexturePack(){
 
   /* Apply to the carriageway 3D mesh — this is what the player actually sees */
   if(roadMat&&asp){
-   if(roadDayTex){roadDayTex.wrapS=roadDayTex.wrapT=THREE.RepeatWrapping;roadDayTex.anisotropy=renderer.capabilities.getMaxAnisotropy();}
-   if(roadNightTex){roadNightTex.wrapS=roadNightTex.wrapT=THREE.RepeatWrapping;roadNightTex.anisotropy=renderer.capabilities.getMaxAnisotropy();}
+   /* A road is the one surface always viewed at a grazing angle, which is the
+      worst case for mipmapping - without anisotropy the tarmac twenty metres
+      ahead collapses to flat grey. Trilinear filtering on top keeps the mip
+      transition from banding across the carriageway. */
+   for(const t of [roadDayTex,roadNightTex]){
+    if(!t)continue;
+    t.wrapS=t.wrapT=THREE.RepeatWrapping;
+    t.anisotropy=renderer.capabilities.getMaxAnisotropy();
+    t.minFilter=THREE.LinearMipmapLinearFilter;
+    t.generateMipmaps=true;
+    t.needsUpdate=true;
+   }
    roadMat.map=(dayAmt01>.35&&roadDayTex)?roadDayTex:roadNightTex;
    roadMat.color.setScalar(1);roadMat.needsUpdate=true;
   }
@@ -4865,7 +5978,29 @@ async function applyTexturePack(){
   if(roadMat&&hgtImg){
    roadMat.roughnessMap=roughFromLuma(hgtImg,.82,1.0);
    roadMat.normalMap=normalFromHeight(hgtImg,5.0);
-   roadMat.normalScale.set(1.5,1.5);
+   /* Relief does not have to tile at the albedo's rate. The road's UVs are
+      world metres over ROAD_TILE, so the colour plate covers 3.8m - right for
+      colour, far too coarse for stone. Chippings in real asphalt are 10-20mm;
+      at 3.8m per tile a 512px map gives one texel every 7mm but stretches the
+      SHAPES to hand-sized, so the surface goes smooth and plasticky exactly
+      where you are closest to it. Three tiles of relief per tile of colour
+      puts the aggregate back at roughly the right size. three gives every map
+      its own UV transform, so this costs nothing and leaves the albedo alone.
+
+      Finer bumps need less amplitude or they turn to noise under the sun, so
+      normalScale comes down as the repeat goes up. */
+   /* Three tiles of relief per tile of colour, which is roughly real chipping
+      size at this scale. The anisotropy that made this expensive last time
+      stays off the normal map and comes back only as a cheap 4 on the
+      roughness, where the grazing-angle mip actually shows. */
+   const RELIEF_REPEAT=3;
+   for(const t of [roadMat.normalMap,roadMat.roughnessMap]){
+    t.repeat.set(RELIEF_REPEAT,RELIEF_REPEAT);
+    t.anisotropy=4;
+   }
+   /* NB: normalScale, roughness and envMapIntensity are re-set every frame by
+      the wet-weather blend in updateFX - setting them here does nothing. The
+      dry values live there. */
    roadMat.needsUpdate=true;
   }
   /* The raised pavement slab is real geometry with UVs scaled to tile
@@ -4939,10 +6074,10 @@ async function applyTexturePack(){
    psd.setTransform(tileScale(13,snd.image.width));
    g.save();
    g.fillStyle=psd;
-   g.fillRect(0,0,2048,W(-CITY/2));                       /* top band */
-   g.fillRect(0,W(CITY/2),2048,2048-W(CITY/2));            /* bottom band */
+   g.fillRect(0,0,GROUND_PX,W(-CITY/2));                       /* top band */
+   g.fillRect(0,W(CITY/2),GROUND_PX,GROUND_PX-W(CITY/2));      /* bottom band */
    g.fillRect(0,W(-CITY/2),W(-CITY/2),CITY*s);             /* left band */
-   g.fillRect(W(CITY/2),W(-CITY/2),2048-W(CITY/2),CITY*s); /* right band */
+   g.fillRect(W(CITY/2),W(-CITY/2),GROUND_PX-W(CITY/2),CITY*s); /* right band */
    g.restore();
   }
   /* asphalt down every road */
@@ -5345,6 +6480,16 @@ async function applyHeroCharacter(){
  rig.cal.kneeR=calibrateBone(rig.bones.kneeR,rig.bones.footR);
  rig.cal.armL=calibrateBone(rig.bones.armL,rig.bones.foreL);
  rig.cal.armR=calibrateBone(rig.bones.armR,rig.bones.foreR);
+ /* Forearms and feet are the ends of their chains, so there is no named bone
+    beyond them to measure against - the child joint the model ships with is
+    the tip. Where there is not one, calibrateBone returns its X-axis default,
+    which is the usual bend axis for both and is no worse than the nothing
+    that was happening before. */
+ const tipOf=b=>(b&&b.children&&b.children.length)?b.children[0]:null;
+ rig.cal.foreL=calibrateBone(rig.bones.foreL,tipOf(rig.bones.foreL));
+ rig.cal.foreR=calibrateBone(rig.bones.foreR,tipOf(rig.bones.foreR));
+ rig.cal.footL=calibrateBone(rig.bones.footL,tipOf(rig.bones.footL));
+ rig.cal.footR=calibrateBone(rig.bones.footR,tipOf(rig.bones.footR));
 
  root.traverse(o=>{
   if(o.isMesh||o.isSkinnedMesh){
@@ -5361,6 +6506,12 @@ async function applyHeroCharacter(){
  return true;
 }
 
+/* Scratch objects. poseHero runs every frame and used to allocate a fresh
+   Quaternion per joint per frame - a dozen throwaway objects a frame, which is
+   exactly the shape of garbage that turns into a periodic hitch. */
+const _pqA=new THREE.Quaternion();
+const _axX=new THREE.Vector3(1,0,0);
+
 /* Drive the gait. Called from updateFoot in place of the limb swing. */
 function poseHero(gait,phase,dt){
  const r=heroRig;
@@ -5373,7 +6524,7 @@ function poseHero(gait,phase,dt){
  const set=(key,ang)=>{
   const b=r.bones[key],c=r.cal[key],rest=r.rest[key];
   if(!b||!c)return;
-  b.quaternion.copy(rest).multiply(new THREE.Quaternion().setFromAxisAngle(c.axis,c.sign*ang));
+  b.quaternion.copy(rest).multiply(_pqA.setFromAxisAngle(c.axis,c.sign*ang));
  };
  const swing=(.30+amp*.50)*sw;
  set('legL', swing);
@@ -5383,16 +6534,29 @@ function poseHero(gait,phase,dt){
  set('kneeR',-Math.max(0,sw)*(.35+amp*.55));
  set('armL',-swing*(.55+amp*.35));
  set('armR', swing*(.55+amp*.35));
+ /* The forearms have to be written EVERY frame, not only while punching.
+    set() touches a bone only when it is called, and the upper arms get away
+    with that because the walk swing rewrites them each frame - the forearms
+    had no such writer. So posing one for a jab and then never touching it
+    again left that arm rotated for the rest of the session, which is the arm
+    sticking out sideways. It was invisible until the punch started working:
+    the line below used to name 'elbowR', a bone that does not exist, so set()
+    bailed on the lookup and nothing was ever left behind. */
+ set('foreL',0);
+ set('foreR',0);
  if(punchT>0){
   const u=1-punchT/PUNCH_TIME;
   const th=u<.38?(u/.38):1-((u-.38)/.62);
   set(punchSide>0?'armR':'armL',-th*2.1);
-  set(punchSide>0?'elbowR':'elbowL',-(1-th)*1.1);
+  /* This said 'elbowR'/'elbowL'. There are no bones by those names - the map
+     calls them foreR/foreL - so set() bailed on the lookup and the punch threw
+     a completely straight arm for as long as it has existed. */
+  set(punchSide>0?'foreR':'foreL',-(1-th)*1.4);
  }
  /* lean into a sprint and bob with the stride */
  if(r.bones.spine&&r.rest.spine){
   r.bones.spine.quaternion.copy(r.rest.spine)
-   .multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1,0,0),-amp*.14));
+   .multiply(_pqA.setFromAxisAngle(_axX,-amp*.14));
  }
  r.holder.position.y=Math.abs(Math.sin(phase))*amp*.045;
 }
@@ -5458,7 +6622,6 @@ const CAR_LEN=4.5;
    is most of what stops them reading as lumps. */
 const CAR_DIMS={
  car_sedan   :{l:4.72,w:1.86,h:1.45,r:.33},
- car_coupe   :{l:4.42,w:1.90,h:1.31,r:.33},
  car_van     :{l:5.10,w:2.02,h:2.14,r:.36},
  car_pickup  :{l:5.32,w:1.98,h:1.80,r:.39},
  car_police  :{l:4.86,w:1.90,h:1.48,r:.34},
@@ -5469,6 +6632,22 @@ const CAR_DIMS={
  car_suv     :{l:4.75,w:1.98,h:1.76,r:.38},
  car_taxi    :{l:4.82,w:1.88,h:1.52,r:.33}
 };
+/* Which way round a prepared shell is modelled.
+
+   The axis swap in loadTrellisCar only decides whether a car lies along X or
+   along Z; it says nothing about which end is the bonnet. Get that wrong and
+   the car drives backwards - W reverses, and the chase camera sits in front
+   of its own bumper - which is exactly what car_sport did.
+
+   The roof-height vote the pack loader uses is too weak to settle it here.
+   Normalised against body height it scores car_muscle at +0.004 and car_taxi
+   at +0.022, both inside the noise, and calling either of those backwards
+   would break two working cars to fix one. So the shells were checked the way
+   a person would: each one rendered with its baked texture against an arrow
+   drawn along the game's +Z, looking for a grille and headlights at the arrow
+   end. Six of the seven models - these five plus the two Sketchfab cars -
+   put their front at +Z. car_sport puts its tail there. */
+const CAR_BACKWARDS=new Set(['car_sport']);
 const gltfLoader=new GLTFLoader();
 function loadMesh(name){
  return new Promise(res=>{
@@ -5811,6 +6990,9 @@ function loadTrellisCar(name){
     geo.computeBoundingBox();
     size=geo.boundingBox.getSize(new THREE.Vector3());
    }
+   /* ...and now which END is the front. See CAR_BACKWARDS. This runs before
+      the wheels are split out, so the front pair stays the front pair. */
+   if(CAR_BACKWARDS.has(name))geo.rotateY(Math.PI);
 
    /* Uniform scale, driven by length alone. Pinning all three axes is right
       for a diffusion shell whose proportions are guesswork and wrong here: it
@@ -6109,7 +7291,6 @@ const bt_len=spec=>spec.l;
    cannot quietly throw off collision. */
 const PACK_SPEC={
  Sedan    :{l:4.85,w:1.84,h:1.45,grip:9.2, pw:9.4, max:42},
- Coupe    :{l:4.45,w:1.86,h:1.31,grip:9.8, pw:10.6,max:44},
  Sport    :{l:4.42,w:1.90,h:1.22,grip:10.6,pw:12.4,max:47},
  Hatchback:{l:4.05,w:1.78,h:1.47,grip:9.0, pw:8.8, max:40},
  Compact  :{l:3.85,w:1.72,h:1.48,grip:8.8, pw:8.2, max:39},
@@ -6304,18 +7485,32 @@ async function applyCarPack(){
  if(!built.length)return false;
 
  /* The vote. Every body is turned together or none is, so whatever the pack's
-    convention turns out to be, the ten stay consistent with each other. */
+    convention turns out to be, the ten stay consistent with each other.
+
+    The majority is right about the pack as a whole, but it cannot be right
+    about a body the artist happened to model the other way round, and the
+    per-body evidence is far too weak to find one: across the ten, four score
+    within 0.04 of neutral. So a body can be named here to take the opposite
+    decision to the majority, and only then.
+
+    To find the name: get into the car that drives backwards and open Settings
+    (the cog, or O) - the panel prints the model you are currently driving.
+    Add that name to this set. Note that 'Sedan' is also the police car, so
+    naming it turns every patrol car too, which is correct if that is the one
+    that is wrong and very obvious if it is not. */
+ const PACK_BACKWARDS=new Set([]);
  let back=0;
  for(const bt of built)if(bt.vote>0)back++;
- if(back*2>built.length){
-  const turn=new THREE.Matrix4().makeRotationY(Math.PI);
-  for(const bt of built){
-   for(const role in bt.merged){
-    bt.merged[role].geo.applyMatrix4(turn);
-    bt.merged[role].geo.computeVertexNormals();
-   }
-   for(const sp of bt.spots){sp.x=-sp.x;sp.z=-sp.z}
+ const majority=back*2>built.length;
+ const turn=new THREE.Matrix4().makeRotationY(Math.PI);
+ for(const bt of built){
+  const flip=PACK_BACKWARDS.has(bt.name)?!majority:majority;
+  if(!flip)continue;
+  for(const role in bt.merged){
+   bt.merged[role].geo.applyMatrix4(turn);
+   bt.merged[role].geo.computeVertexNormals();
   }
+  for(const sp of bt.spots){sp.x=-sp.x;sp.z=-sp.z}
  }
  /* front pair first - stepCar steers wheels[0] and wheels[1] */
  for(const bt of built)bt.spots.sort((a,c)=>c.z-a.z);
@@ -6348,16 +7543,34 @@ async function applyCarPack(){
  return true;
 }
 
+/* A helicopter parked on a side street, or a tank in the traffic queue, is not
+   scenery - it is a bug. Anything flagged spawnOnly exists only when somebody
+   asks for it from the spawn menu. */
+function roadVehicleIndex(){
+ for(let tries=0;tries<24;tries++){
+  const i=Math.floor(Math.random()*VEHICLES.length);
+  if(!VEHICLES[i].spawnOnly)return i;
+ }
+ for(let i=0;i<VEHICLES.length;i++)if(!VEHICLES[i].spawnOnly)return i;
+ return 0;
+}
+
 /* Swap every car in the world onto the current VEHICLES set, keeping its
    simulation state. Used after either mesh source finishes loading. */
-function rebuildAllCars(){
+function rebuildAllCars(reroll){
  for(const c of cars){
   if(c.gone)continue;
   const wasPlayer=(player.car===c);
+  /* Re-deal the body style across the FULL set now that everything has
+     loaded. Without this the opening traffic keeps the indices it drew when
+     the array was a few entries long, and the late arrivals never appear. */
+  if(reroll&&!wasPlayer&&!(VEHICLES[c.kind]&&VEHICLES[c.kind].spawnOnly))c.kind=roadVehicleIndex();
   scene.remove(c.m);
   c.m=makeCar(c.color||'#c8c8c8',c.type==='cop',c.kind);
-  c.m.position.set(c.x,0,c.z);c.m.rotation.y=c.h;
-  if(c.dead)c.m.userData.body.material=wreckMat;
+  c.heli=!!c.m.userData.isHeli;c.tank=!!c.m.userData.isTank;
+  c.m.position.set(c.x,c.alt||0,c.z);c.m.rotation.y=c.h;
+  if(c.dead&&c.m.userData.body&&c.m.userData.body.material!==undefined)
+   c.m.userData.body.material=wreckMat;
   scene.add(c.m);
   if(wasPlayer)beamCar=null;
  }
@@ -6367,7 +7580,9 @@ function rebuildAllCars(){
  for(let i=0;i<parkedSpots.length;i++){
   const sp=parkedSpots[i];
   if(!sp.kept)continue;
-  if(sp.vi===undefined){sp.vi=randi(0,VEHICLES.length-1);sp.col=pick(CARCOLS)}
+  /* Same for the parked rows: sp.vi is cached so the row does not reshuffle
+     on every rebuild, which also means it was frozen at the early array. */
+  if(reroll||sp.vi===undefined){sp.vi=roadVehicleIndex();if(!sp.col)sp.col=pick(CARCOLS)}
  }
  for(const [,g] of parkedReal){scene.remove(g)}
  parkedReal.clear();parkedShown=new Set();
@@ -6486,7 +7701,7 @@ function updateParked(){
 
 async function applyVehicleMeshes(){
  const map=[
-  ['saloon','car_sedan'],['coupe','car_coupe'],['van','car_van'],['pickup','car_pickup']
+  ['saloon','car_sedan'],['van','car_van'],['pickup','car_pickup']
  ];
  let got=0;
  await Promise.all(map.map(async ([kind,file])=>{
@@ -6548,12 +7763,351 @@ async function applyVehicleMeshes(){
     why they were never in the game: the pack has never failed. */
  const tn=await applyTrellisCars();
  const nn=await applyNamedCars();
- rebuildAllCars();
+ const an=await applyAircraft();
+ const fl=applyRememberedFlips();
+ /* everything is registered now, so re-deal - see rebuildAllCars */
+ rebuildAllCars(true);
+ if(fl)toast(fl+' vehicle'+(fl>1?'s':'')+' turned round (remembered)');
  toast(VEHICLES.length+' vehicles loaded'
-   +(tn?' (+'+tn+' TRELLIS)':'')+(nn?' (+'+nn+' modelled)':''),'cash');
+   +(tn?' (+'+tn+' TRELLIS)':'')+(nn?' (+'+nn+' modelled)':'')
+   +(an?' (+'+an+' aircraft)':''),'cash');
 })();
 applyCharacters();
 loadRadio();
+/* ================= HELICOPTER AND TANK =================
+   Both are Sketchfab models with awkward shapes for this codebase.
+
+   The helicopter arrives as ONE mesh with no rotor node, so the blades cannot
+   simply be found by name and spun. They can be found by where they are:
+   measuring the model in bands down its height, the top fifth spans 37 units
+   across while everything below it collapses to about 7. That is the rotor
+   disc and the fuselage, unambiguously, so the split is a height threshold.
+
+   The tank arrives as 26 nodes, and the turret has to turn independently of
+   the hull or it is a lump. Its parts are identified by sitting above the hull
+   deck and within the turret ring, which survives the meaningless node names
+   (Object09_24 and friends). */
+
+const HELI_LEN=13.4, TANK_LEN=9.8;
+
+/* Split one merged geometry in two by a per-triangle test. Returns
+   {a,b} - triangles that passed, and triangles that did not. */
+function splitGeoBy(geo,test){
+ const p=geo.attributes.position, n=geo.attributes.normal, u=geo.attributes.uv;
+ const A={p:[],n:[],u:[]}, B={p:[],n:[],u:[]};
+ for(let t=0;t<p.count;t+=3){
+  const cx=(p.getX(t)+p.getX(t+1)+p.getX(t+2))/3;
+  const cy=(p.getY(t)+p.getY(t+1)+p.getY(t+2))/3;
+  const cz=(p.getZ(t)+p.getZ(t+1)+p.getZ(t+2))/3;
+  const d=test(cx,cy,cz)?A:B;
+  for(let k=0;k<3;k++){
+   d.p.push(p.getX(t+k),p.getY(t+k),p.getZ(t+k));
+   if(n)d.n.push(n.getX(t+k),n.getY(t+k),n.getZ(t+k));
+   if(u)d.u.push(u.getX(t+k),u.getY(t+k));
+  }
+ }
+ const mk=o=>{
+  const g=new THREE.BufferGeometry();
+  g.setAttribute('position',new THREE.Float32BufferAttribute(o.p,3));
+  if(o.n.length)g.setAttribute('normal',new THREE.Float32BufferAttribute(o.n,3));
+  if(o.u.length)g.setAttribute('uv',new THREE.Float32BufferAttribute(o.u,2));
+  if(!o.n.length)g.computeVertexNormals();
+  return g;
+ };
+ return {a:mk(A),b:mk(B)};
+}
+
+/* Collect every mesh in a GLB into one world-space geometry per material. */
+function flattenGLB(root){
+ root.updateMatrixWorld(true);
+ const parts=[];
+ root.traverse(o=>{
+  if(!o.isMesh||!o.geometry||!o.geometry.attributes.position)return;
+  let g=o.geometry.clone();
+  if(g.index)g=g.toNonIndexed();
+  if(!g.attributes.normal)g.computeVertexNormals();
+  if(!g.attributes.uv)g.setAttribute('uv',
+    new THREE.Float32BufferAttribute(new Float32Array(g.attributes.position.count*2),2));
+  g.applyMatrix4(o.matrixWorld);
+  parts.push({geo:g,mat:Array.isArray(o.material)?o.material[0]:o.material,node:o});
+ });
+ return parts;
+}
+
+function boxOf(parts){
+ const bb=new THREE.Box3();
+ for(const p of parts){p.geo.computeBoundingBox();bb.union(p.geo.boundingBox)}
+ return bb;
+}
+
+/* ---- helicopter ---- */
+function loadHelicopter(){
+ return new Promise(res=>{
+  gltfLoader.load('meshes/helicopter.glb',gltf=>{
+   const parts=flattenGLB(gltf.scene);
+   if(!parts.length)return res(null);
+   let bb=boxOf(parts), size=bb.getSize(new THREE.Vector3());
+   /* nose along +Z like every other vehicle */
+   if(size.x>size.z){for(const p of parts)p.geo.rotateY(Math.PI/2);bb=boxOf(parts);size=bb.getSize(new THREE.Vector3())}
+   const k=HELI_LEN/Math.max(size.z,1e-6);
+   for(const p of parts)p.geo.scale(k,k,k);
+   bb=boxOf(parts);
+   const ctr=bb.getCenter(new THREE.Vector3());
+   for(const p of parts)p.geo.translate(-ctr.x,-bb.min.y,-ctr.z);
+   bb=boxOf(parts);
+   const H=bb.max.y-bb.min.y;
+   /* The measured cut: rotor above, airframe below. */
+   const yCut=bb.max.y-H*0.19;
+   const bodyParts=[], rotorParts=[];
+   for(const p of parts){
+    const s=splitGeoBy(p.geo,(x,y)=>y>yCut);
+    if(s.a.attributes.position.count)rotorParts.push({geo:s.a,mat:p.mat});
+    if(s.b.attributes.position.count)bodyParts.push({geo:s.b,mat:p.mat});
+   }
+   if(!rotorParts.length){res({parts,rotor:null,dims:{l:HELI_LEN,w:size.x*k,h:H}});return}
+   /* the rotor turns about its own hub, so move it to the origin and hang it
+      back at the right height when the group is built */
+   const rbb=boxOf(rotorParts);
+   const hub=new THREE.Vector3((rbb.max.x+rbb.min.x)/2,0,(rbb.max.z+rbb.min.z)/2);
+   for(const p of rotorParts)p.geo.translate(-hub.x,0,-hub.z);
+   res({parts:bodyParts,rotor:rotorParts,hub,dims:{l:HELI_LEN,w:size.x*k,h:H}});
+  },undefined,()=>res(null));
+ });
+}
+
+/* ---- tank ---- */
+function loadTank(){
+ return new Promise(res=>{
+  gltfLoader.load('meshes/tank_t-80u.glb',gltf=>{
+   const parts=flattenGLB(gltf.scene);
+   if(!parts.length)return res(null);
+   let bb=boxOf(parts), size=bb.getSize(new THREE.Vector3());
+   if(size.x>size.z){for(const p of parts)p.geo.rotateY(Math.PI/2);bb=boxOf(parts);size=bb.getSize(new THREE.Vector3())}
+   const k=TANK_LEN/Math.max(size.z,1e-6);
+   for(const p of parts)p.geo.scale(k,k,k);
+   bb=boxOf(parts);
+   const ctr=bb.getCenter(new THREE.Vector3());
+   for(const p of parts)p.geo.translate(-ctr.x,-bb.min.y,-ctr.z);
+   bb=boxOf(parts);
+   const H=bb.max.y-bb.min.y;
+   /* Where the hull stops and the turret starts. Measured rather than guessed:
+      by node centroid the hull and running gear all sit below 1.35 in model
+      units while the turret (2.12), the gun barrel (1.79) and the cupola
+      (2.79) sit above it - and that is 0.235 of the model's height. An earlier
+      0.42 put the turret AND the barrel in the hull group, which is why the
+      muzzle came out at half a metre instead of five. */
+   const deck=bb.min.y+H*0.24;
+   const hullParts=[], turretParts=[];
+   for(const p of parts){
+    p.geo.computeBoundingBox();
+    const c=p.geo.boundingBox.getCenter(new THREE.Vector3());
+    (c.y>deck?turretParts:hullParts).push(p);
+   }
+   if(!turretParts.length){res({parts,turret:null,dims:{l:TANK_LEN,w:size.x*k,h:H}});return}
+   const tbb=boxOf(turretParts);
+   /* The turret is left where it is. Moving it to a pivot would only matter if
+      it turned independently, which it does not yet, and shifting it now would
+      just put it somewhere wrong. */
+
+   /* Height for collision and camera framing must ignore the whip antenna -
+      it is 3 metres of 3cm-wide wire and would otherwise make the tank read as
+      5m tall. Anything narrower than a quarter of the hull is trim. */
+   let solidTop=bb.min.y;
+   for(const p of parts){
+    p.geo.computeBoundingBox();
+    const s=p.geo.boundingBox.getSize(new THREE.Vector3());
+    if(s.x>size.x*k*0.25&&p.geo.boundingBox.max.y>solidTop)solidTop=p.geo.boundingBox.max.y;
+   }
+   res({parts:hullParts,turret:turretParts,
+        dims:{l:TANK_LEN,w:size.x*k,h:Math.max(1.6,solidTop-bb.min.y)},
+        muzzle:tbb.max.z});
+  },undefined,()=>res(null));
+ });
+}
+
+function mergeParts(parts,fallbackColor){
+ const geos=parts.map(p=>p.geo);
+ const mats=parts.map(p=>p.mat||new THREE.MeshStandardMaterial({color:fallbackColor||0x8d949c}));
+ const grp=new THREE.Group();
+ for(let i=0;i<geos.length;i++){
+  const m=new THREE.Mesh(geos[i],mats[i]);
+  m.castShadow=true;m.receiveShadow=true;
+  grp.add(m);
+ }
+ return grp;
+}
+
+async function applyAircraft(){
+ let n=0;
+ const heli=await loadHelicopter();
+ if(heli){
+  VEHICLES.push({
+   name:'Helicopter', spawnOnly:true, heli:true,
+   dims:heli.dims, wheelR:.3, wheel:.3, axle:heli.dims.l*.3,
+   handling:{l:heli.dims.l,w:heli.dims.w,h:heli.dims.h,grip:6,pw:9,max:60},
+   build:(col)=>{
+    const g=new THREE.Group();
+    g.rotation.order='YXZ';
+    g.add(mergeParts(heli.parts,0x39424d));
+    if(heli.rotor){
+     const rg=mergeParts(heli.rotor,0x2b3238);
+     rg.position.set(heli.hub.x,0,heli.hub.z);
+     g.add(rg);
+     g.userData.rotor=rg;
+    }
+    g.userData.body={material:null};
+    return g;
+   }
+  });
+  n++;
+ }
+ const tank=await loadTank();
+ if(tank){
+  VEHICLES.push({
+   name:'Tank', spawnOnly:true, tank:true,
+   dims:tank.dims, wheelR:.4, wheel:.4, axle:tank.dims.l*.3,
+   handling:{l:tank.dims.l,w:tank.dims.w,h:tank.dims.h,grip:7.4,pw:5.2,max:22},
+   muzzle:tank.muzzle||tank.dims.l*.55,
+   build:(col)=>{
+    const g=new THREE.Group();
+    g.rotation.order='YXZ';
+    g.add(mergeParts(tank.parts,0x4a5340));
+    if(tank.turret){
+     const tg=mergeParts(tank.turret,0x4a5340);
+     g.add(tg);
+     g.userData.turret=tg;
+    }
+    g.userData.body={material:null};
+    return g;
+   }
+  });
+  n++;
+ }
+ return n;
+}
+
+/* ================= FLIGHT =================
+   Deliberately not a new player mode. Staying inside 'drive' means the camera,
+   the HUD, entering and leaving, the map and every touch control keep working
+   exactly as they already do - the only thing that changes is what moves the
+   vehicle each frame. */
+const HELI_MAX_ALT=120;
+function stepHeli(c,thr,steer,lift,dt){
+ c.alt=c.alt||0;
+ c.rotorRpm=c.rotorRpm||0;
+ /* the rotor has to be up to speed before it will leave the ground, which is
+    most of what makes a helicopter feel like one rather than a floating car */
+ const wantRpm=lift||c.alt>.05?1:(thr?.55:.25);
+ c.rotorRpm+=(wantRpm-c.rotorRpm)*Math.min(1,dt*.85);
+ const power=Math.max(0,c.rotorRpm-.55)/.45;
+ const climb=lift?18*power:(c.alt>0?-11:0);
+ c.alt=clamp(c.alt+climb*dt,0,HELI_MAX_ALT);
+ /* yaw straight from the stick - a tail rotor turns you on the spot */
+ c.h-=steer*1.5*dt*(0.35+power*0.65);
+ /* forward speed: nose-down thrust, with air drag rather than tyre grip */
+ c.vf=(c.vf||0)+thr*17*power*dt;
+ c.vf*=Math.pow(.62,dt);
+ if(c.alt<.05&&c.vf>6)c.vf=6;               /* no taxiing at 60mph */
+ const fX=Math.sin(c.h),fZ=Math.cos(c.h);
+ c.vx=fX*c.vf;c.vz=fZ*c.vf;
+ c.x+=c.vx*dt;c.z+=c.vz*dt;
+ c.sp=Math.abs(c.vf);
+ /* lean into it, and roll into the turn */
+ c.pit=lerp(c.pit||0,clamp(-c.vf*.012,-.30,.30),Math.min(1,dt*3));
+ c.roll=lerp(c.roll||0,clamp(steer*.34*power,-.34,.34),Math.min(1,dt*3));
+ /* the ground is the only thing it collides with once airborne */
+ if(c.alt<2.2){
+  const pr={x:c.x,z:c.z,vx:c.vx,vz:c.vz};
+  collideStatic(pr,Math.max(1.6,c.m?c.m.userData.wid*.5:1.6));
+  c.x=pr.x;c.z=pr.z;
+ }
+ const lim=GS/2-6;
+ c.x=clamp(c.x,-lim,lim);c.z=clamp(c.z,-lim,lim);
+ if(c.m&&c.m.userData.rotor)c.m.userData.rotor.rotation.y+=dt*c.rotorRpm*34;
+ syncCar(c);
+}
+
+/* ================= TANK GUN =================
+   The shell damages what the simulation actually owns: vehicles and people.
+   Bins, benches, hydrants and trees are merged into a handful of static meshes
+   by material - that merge is why the city draws in ~200 calls instead of
+   thousands - so blowing one up individually would mean un-merging the lot and
+   paying for it every frame. Not worth it for a crater. */
+const shells=[];
+const SHELL_SPEED=78, SHELL_BLAST=9;
+function fireTank(c){
+ if(!c||c.reload>0)return false;
+ c.reload=1.6;
+ const fX=Math.sin(c.h),fZ=Math.cos(c.h);
+ const V=VEHICLES.find(v=>v.name==='Tank');
+ const mz=(V&&V.muzzle)||5;
+ shells.push({x:c.x+fX*mz, y:1.9, z:c.z+fZ*mz,
+              vx:fX*SHELL_SPEED, vy:2.5, vz:fZ*SHELL_SPEED, t:0, from:c});
+ /* recoil, and something to hear */
+ c.vf=(c.vf||0)-3.2;
+ camShake=Math.max(camShake,.42);
+ sfxCrash(16,c.x,c.z);
+ sfx(70,.5,'sawtooth',.28);
+ puff(c.x+fX*mz,1.9,c.z+fZ*mz,{col:new THREE.Color(0xffd9a0),op:.9,life:.36,g:1.5,g1:4.2,vy:1.2,
+   vx:fX*6,vz:fZ*6,fade:0});
+ return true;
+}
+function updateShells(dt){
+ for(let i=shells.length-1;i>=0;i--){
+  const s=shells[i];
+  s.t+=dt;
+  s.vy-=24*dt;
+  s.x+=s.vx*dt;s.y+=s.vy*dt;s.z+=s.vz*dt;
+  let hit=(s.y<=.25);
+  /* Contact with a vehicle. Without this the shell only ever armed on the
+     ground or a wall, so a flat shot at a car 30m away sailed over its roof at
+     1.5m and detonated 13 metres past it - outside the blast, so the thing you
+     aimed at was the one thing that survived. */
+  if(!hit&&s.y<3.4){
+   for(const c of cars){
+    if(c.gone||c===s.from)continue;
+    if(Math.hypot(c.x-s.x,c.z-s.z)<2.6){hit=true;break}
+   }
+  }
+  if(!hit){
+   /* anything solid in the way, including the buildings */
+   const pr={x:s.x,z:s.z,vx:0,vz:0};
+   if(s.y<14&&collideStatic(pr,.6)>0)hit=true;
+  }
+  /* a tracer, so you can see where it went */
+  s.trail=(s.trail||0)-dt;
+  if(!hit&&s.trail<=0){
+   s.trail=.03;
+   _smokeCol.copy(SMOKE_LIGHT);
+   puff(s.x,s.y,s.z,{col:_smokeCol,op:.30,life:.45,g:.35,g1:1.1,vy:.4,fade:.1});
+  }
+  if(!hit&&s.t>5)hit=true;
+  if(!hit)continue;
+  shells.splice(i,1);
+  explode(s.x,s.z);
+  camShake=Math.max(camShake,Math.min(.6,90/(1+Math.hypot(s.x-player.x,s.z-player.z))*.02));
+  /* everything the simulation owns takes the blast */
+  for(const c of cars){
+   if(c.gone||c===s.from)continue;
+   const d=Math.hypot(c.x-s.x,c.z-s.z);
+   if(d>SHELL_BLAST)continue;
+   const f=1-d/SHELL_BLAST;
+   c.hp-=120*f;
+   const nx=(c.x-s.x)/(d||1), nz=(c.z-s.z)/(d||1);
+   c.vx+=nx*15*f;c.vz+=nz*15*f;
+   if(c.ai==='traffic')c.ai='flee';
+   if(c.hp<=0&&!c.dead)killCar(c);
+  }
+  for(const p of peds){
+   if(p.state==='dead')continue;
+   if(Math.hypot(p.x-s.x,p.z-s.z)>SHELL_BLAST)continue;
+   killPed(p,true);
+  }
+  if(Math.hypot(player.x-s.x,player.z-s.z)<SHELL_BLAST&&player.mode==='foot'){
+   player.hp-=55;if(player.hp<=0)die(false);
+  }
+ }
+}
 /* ================= /GENERATED VEHICLE MESHES ================= */
 
 /* ---- main loop ---- */
@@ -6568,6 +8122,9 @@ function tick(now){
  const rawDt=(now-lastT)/1000;
  const dt=clamp(rawDt,0,.05);
  lastT=now;
+ /* before anything that asks what the player is doing */
+ readControls();
+ syncTouchUI();
  updateSky(dt);
  /* fx sprites */
  for(let i=fx.length-1;i>=0;i--){
@@ -6581,23 +8138,34 @@ function tick(now){
  if(state==='play'){
   if(player.mode==='drive'){
    const c=player.car;
-   const thr=(keys.KeyW?1:0)-(keys.KeyS?1:0);
-   const steer=(keys.KeyA?1:0)-(keys.KeyD?1:0);
-   stepCar(c,thr,steer,!!keys.Space,dt);
-   const e=carExtents(c);const imp=collideStatic(c,e[0],e[1],carOBB(c));
-   if(imp>4){c.hp-=imp*2;sfxCrash(imp);camShake=Math.min(.5,imp*.03)}
-   if(c.hp<=0&&!c.dead)killCar(c);
-   if(!c.dead)syncCar(c);
-   player.x=c.x;player.z=c.z;
-   if(c.sp>18&&c.slip>4.5)camShake=Math.max(camShake,Math.min(.09,c.slip*.006));
+   if(c.reload>0)c.reload-=dt;
+   if(c.heli){
+    /* the handbrake doubles as the collective: hold it to climb, let go to
+       settle. One control, and it is already bound on keyboard and touch. */
+    stepHeli(c,ctl.thr,ctl.steer,ctl.hand,dt);
+    player.x=c.x;player.z=c.z;
+   }else{
+    stepCar(c,ctl.thr,ctl.steer,ctl.hand,dt);
+    const e=carExtents(c);const imp=collideStatic(c,e[0],e[1],carOBB(c));
+    if(imp>4){c.hp-=imp*2;sfxCrash(imp);camShake=Math.min(.5,imp*.03)}
+    if(c.hp<=0&&!c.dead)killCar(c);
+    if(!c.dead)syncCar(c);
+    player.x=c.x;player.z=c.z;
+    if(c.sp>18&&c.slip>4.5)camShake=Math.max(camShake,Math.min(.09,c.slip*.006));
+   }
   }else{
    updateFoot(dt);
   }
+  updateShells(dt);
   updateTraffic(dt);
   updatePeds(dt);
   updateCops(dt);
   updateMission(dt);
   for(let i=0;i<cars.length;i++){
+   /* Rotors turn whether or not anyone is flying it - a parked helicopter with
+      a dead rotor looks broken, and the player's own is driven by stepHeli. */
+   if(cars[i].heli&&cars[i].m&&cars[i].m.userData.rotor&&player.car!==cars[i])
+    cars[i].m.userData.rotor.rotation.y+=dt*2.2;
    if(cars[i].gone)continue;
    for(let j=i+1;j<cars.length;j++){
     if(cars[j].gone)continue;
@@ -6612,7 +8180,9 @@ function tick(now){
   updateParked();
   reapCars();
   updateHUD();
-  drawRadar();
+  /* every other frame - see the note on radarTick */
+  radarTick=!radarTick;
+  if(radarTick)drawRadar();
   if(mapOpen)drawBigMap();
  }else if(state==='dead'){
   deadTimer-=dt;
@@ -6632,12 +8202,14 @@ function tick(now){
     moving car - which is invisible against the blob shadow underneath it.
     This is why daylight cost roughly double the triangles of night. */
  if(renderer.shadowMap.enabled&&sun.castShadow){
-  shadowTick=(shadowTick+1)%SHADOW_EVERY;
+  shadowTick=(shadowTick+1)%shadowEvery();
   renderer.shadowMap.needsUpdate=(shadowTick===0);
  }
  composer.render();
  renderMs=performance.now()-_tSim;
  frameCalls=renderer.info.render.calls;frameTris=renderer.info.render.triangles;
+ /* whatever the frame spent outside tick(): GPU catch-up, compositing, vsync */
+ waitMs=Math.max(0,rawDt*1000-simMs-renderMs);
  profSample(rawDt*1000,simMs,renderMs,frameCalls,frameTris);
  updatePerf(rawDt);
 }
