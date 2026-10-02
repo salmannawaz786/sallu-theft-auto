@@ -36,9 +36,21 @@ You can walk up to any pedestrian and press `E` to ask what they saw.
 | **Characters** | skinned skeletal animation, gait driven procedurally |
 | **Audio** | Web Audio — synthesized engine, tyre squeal, and a full music generator |
 | **Assets** | textures generated with FLUX.2, meshes with Hunyuan3D, on Beam.cloud |
-| **Ship size** | ~8 MB total |
+| **Ship size** | ~30 MB of models and textures, most of it fetched in the background after the title screen |
 
 Everything is plain ES modules loaded from a CDN. Clone it, open it, it runs.
+
+---
+
+## What's new
+
+- **Pick your character** — four playable people on the title screen and in the pause menu; the choice is remembered.
+- **New vehicles** — a Ford F-150 and a proper police cruiser (cops now drive it), plus two more generated cars, all with wheels that actually turn.
+- **A coast worth looking at** — turquoise lagoon with a foam line that washes in and out, paler sand with a wet edge, and a ring of green hills on the horizon instead of flat boxes.
+- **Real trees** — park and jungle trees, grass and flowers are modelled plants now, instanced and culled by map cell.
+- **Phone mode** — fewer cars and people, lighter assets, fullscreen + landscape lock on the first tap, and a buzz on hits.
+- **Menu fix** — ESC opens the pause menu on the first press. (Browsers swallow Escape while the mouse is captured, so the menu now opens from the pointer-lock release itself.)
+- The helicopter is gone.
 
 ---
 

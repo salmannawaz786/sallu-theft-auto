@@ -244,7 +244,45 @@ body.touch #gear{top:calc(12px + env(safe-area-inset-top));right:calc(64px + env
 #setNow{margin-top:16px;padding-top:12px;border-top:1px solid rgba(242,234,217,.12);
  font-size:11px;letter-spacing:1.2px;color:var(--dim);line-height:1.7}
 
+/* ---- character cards ---- */
+.chooser{margin-top:16px;display:flex;flex-direction:column;align-items:center;gap:8px}
+.chooseLbl{font-size:10.5px;letter-spacing:4px;color:var(--dim)}
+.chars{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
+.chCard{width:92px;padding:0 0 7px;border-radius:11px;cursor:pointer;color:var(--paper);font-family:inherit;
+ background:rgba(255,255,255,.05);border:1px solid rgba(242,234,217,.2);overflow:hidden;pointer-events:auto;
+ -webkit-tap-highlight-color:transparent;transition:transform .12s,border-color .12s,background .12s}
+.chCard:hover{background:rgba(255,255,255,.11);transform:translateY(-2px)}
+.chCard .chImg{display:block;height:118px;background:radial-gradient(120% 90% at 50% 100%,rgba(255,180,84,.20),rgba(10,12,16,.0) 70%)}
+.chCard img{display:block;width:100%;height:100%;object-fit:contain;object-position:center bottom}
+.chCard b{display:block;margin-top:5px;font-size:11px;letter-spacing:1.6px}
+.chCard em{display:block;font-style:normal;font-size:9.5px;letter-spacing:1px;color:var(--dim);min-height:12px}
+.chCard.on{border-color:var(--amber);background:rgba(255,180,84,.14);box-shadow:0 0 0 1px var(--amber),0 6px 22px rgba(255,180,84,.18)}
+.chCard.on b{color:var(--amber)}
+.chCard.loading{animation:pu .9s infinite;pointer-events:none}
+.chars.big{margin-top:14px}
+.chars.big .chCard{width:calc(50% - 5px);}
+.chars.big .chCard .chImg{height:150px}
+body.touch .chCard{width:64px;border-radius:9px}
+body.touch .chCard .chImg{height:68px}
+body.touch .chCard b{font-size:9.5px;letter-spacing:1px;margin-top:3px}
+body.touch .chCard em{font-size:8.5px;min-height:10px}
+body.touch .chooser{margin-top:4px;gap:3px}
+body.touch .chars.big .chCard .chImg{height:96px}
+body.touch .chooseLbl{font-size:9px;letter-spacing:3px}
+/* a landscape phone is ~375px tall: the title has to fit, not scroll */
+body.touch #title .tag2,body.touch #title .eyebrow,body.touch #credit .cred-note{display:none}
+body.touch #title h1{font-size:clamp(32px,12vh,56px);margin:2px 0}
+body.touch #title .rule{margin:6px 0}
+body.touch #title .tag{font-size:12px}
+body.touch #start{margin-top:8px;font-size:12px}
+body.touch #credit{margin-top:6px;font-size:11px;gap:2px}
+body.touch #title:not(.gone) ~ #gear{display:none!important}
+
 /* ---- paged menu ---- */
+#menuInfo{display:flex;justify-content:space-between;gap:10px;margin-top:14px;padding-top:11px;
+ border-top:1px solid rgba(242,234,217,.12);font-size:11px;letter-spacing:1.6px;color:var(--dim)}
+#menuInfo span:first-child{color:var(--green);font-weight:700}
+#menuInfo span:nth-child(2){color:var(--amber);letter-spacing:3px}
 .menuList{display:flex;flex-direction:column;gap:7px;margin-top:12px}
 .menuList i{font-style:normal;text-align:center;font-size:13px;letter-spacing:2.4px;
  padding:13px 10px;border-radius:7px;cursor:pointer;font-weight:700;
@@ -316,6 +354,7 @@ body.touch #credit .cred-note{display:none}
     <span><kbd>F</kbd> enter / exit car</span><span><kbd>CLICK</kbd> / <kbd>Q</kbd> punch</span><span><kbd>E</kbd> ask a witness</span><span><kbd>SHIFT</kbd> sprint</span>
     <span><kbd>MOUSE</kbd> look</span><span><kbd>M</kbd> map</span><span><kbd>C</kbd> camera</span><span><kbd>T</kbd> skip time</span><span><kbd>R</kbd> rain</span>
   </div>
+  <div class="chooser"><div class="chooseLbl">CHOOSE YOUR CHARACTER</div><div class="chars" id="charCardsTitle"></div></div>
   <div id="start">CLICK TO START</div>
   <div id="credit">
     <span>Built by <b>Muhammad Salman</b></span>
@@ -353,9 +392,17 @@ body.touch #credit .cred-note{display:none}
     <div class="setPage" id="pgRoot">
       <div class="menuList">
         <i data-go="resume">RESUME</i>
+        <i data-go="chars">CHARACTER</i>
         <i data-go="guide">HOW TO PLAY</i>
         <i data-go="cheats">CHEATS &amp; OPTIONS</i>
+        <i data-go="respawn">BACK TO START</i>
       </div>
+      <div id="menuInfo"></div>
+    </div>
+
+    <div class="setPage hidden" id="pgChars">
+      <div class="chars big" id="charCardsMenu"></div>
+      <div class="menuList"><i data-go="root">BACK</i></div>
     </div>
 
     <div class="setPage hidden" id="pgGuide">
@@ -438,6 +485,20 @@ const randi=(a,b)=>Math.floor(rand(a,b+1));
 const pick=a=>a[Math.floor(Math.random()*a.length)];
 const wrapA=a=>{while(a>Math.PI)a-=6.283185307;while(a<-Math.PI)a+=6.283185307;return a};
 const $=id=>document.getElementById(id);
+/* A phone, as far as the game is concerned: a coarse primary pointer, or
+   ?touch=1 to force it from a desktop (?touch=0 forces it off). Decided once,
+   up here, because the world is sized by it before the controls exist. */
+const PHONE=(()=>{
+ const q=new URLSearchParams(location.search).get('touch');
+ if(q==='1')return true;
+ if(q==='0')return false;
+ try{return matchMedia('(pointer:coarse)').matches}catch(e){return false}
+})();
+/* Population is the part of the simulation that scales with CPU, and a phone
+   has the least of it. Fewer cars and people on the street, same city. */
+const TRAFFIC_MAX=PHONE?20:32, TRAFFIC_START=PHONE?18:30, PEDS_START=PHONE?28:44;
+/* A short buzz on a hit. No-op where the browser has no vibration (iOS). */
+function buzz(ms){try{if(PHONE&&navigator.vibrate)navigator.vibrate(ms)}catch(e){}}
 
 /* ---- world constants ---- */
 const BLOCKS=8,ROAD=16,BLOCK=46,PITCH=BLOCK+ROAD,CITY=BLOCKS*PITCH+ROAD,BEACH=40,GS=CITY+BEACH*2;
@@ -605,7 +666,41 @@ const oceanNormalTex=(()=>{
  t.repeat.set(48,48);
  return t;
 })();
-const oceanMat=new THREE.MeshStandardMaterial({color:0x16889c,normalMap:oceanNormalTex,roughness:.10,metalness:.45,envMapIntensity:1.8});
+const oceanMat=new THREE.MeshStandardMaterial({color:0x16889c,normalMap:oceanNormalTex,roughness:.34,metalness:.12,envMapIntensity:.6});
+/* The shore, done in the water's own shader. 'd' is how many metres past the
+   edge of the sand a fragment is, so the colour can run turquoise over the
+   shallows to deep blue offshore, and a foam line can wash in and out along
+   the whole coast. The sea used to be one flat colour with the sky smeared
+   across it, which read as white blotches rather than as waves. */
+const oceanU={time:{value:0},day:{value:1},shore:{value:GS/2}};
+oceanMat.onBeforeCompile=sh=>{
+ sh.uniforms.uTime=oceanU.time;sh.uniforms.uDay=oceanU.day;sh.uniforms.uShore=oceanU.shore;
+ sh.vertexShader=sh.vertexShader
+  .replace('#include <common>','#include <common>\nvarying vec3 vOW;')
+  .replace('#include <begin_vertex>','#include <begin_vertex>\nvOW=(modelMatrix*vec4(position,1.0)).xyz;');
+ sh.fragmentShader=sh.fragmentShader
+  .replace('#include <common>',`#include <common>
+varying vec3 vOW;uniform float uTime,uDay,uShore;
+float oh(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
+float on(vec2 p){vec2 i=floor(p),f=fract(p);vec2 u=f*f*(3.-2.*f);
+ return mix(mix(oh(i),oh(i+vec2(1,0)),u.x),mix(oh(i+vec2(0,1)),oh(i+vec2(1,1)),u.x),u.y);}`)
+  .replace('#include <color_fragment>',`#include <color_fragment>
+{
+ float d=max(abs(vOW.x),abs(vOW.z))-uShore;
+ float open=smoothstep(0.,110.,d);
+ vec3 lagoon=vec3(.10,.72,.68)*(.16+.84*uDay);
+ vec3 deepc=diffuseColor.rgb*vec3(.50,.68,.95);
+ diffuseColor.rgb=mix(lagoon,deepc,open);
+ float n1=on(vOW.xz*.08+vec2(uTime*.05,0.));
+ float surf=4.4+sin(uTime*.55+vOW.x*.045+vOW.z*.05)*1.5+n1*2.4;
+ float f1=1.-smoothstep(0.,1.5,abs(d-surf));
+ float f2=1.-smoothstep(0.,1.1,abs(d-(surf*2.1+3.)));
+ float rag=on(vOW.xz*.65+uTime*.12);
+ float foam=(f1*.95+f2*.40*(1.-open))*smoothstep(.22,.68,rag+f1*.42);
+ foam*=1.-smoothstep(26.,64.,d);
+ diffuseColor.rgb=mix(diffuseColor.rgb,vec3(1.)*(.22+.78*uDay),clamp(foam,0.,1.));
+}`);
+};
 const ocean=new THREE.Mesh(new THREE.PlaneGeometry(2600,2600,44,44).rotateX(-Math.PI/2),oceanMat);
 ocean.position.y=-.35;scene.add(ocean);
 const oceanDay=new THREE.Color(0x16889c),oceanNight=new THREE.Color(0x0a1c24);
@@ -1734,6 +1829,11 @@ let signalLensMat=null,kerbMat=null;
 }
 
 /* ---- palms & street lamps ---- */
+/* Where the real plant models go (see PLANT PACK). Filled while the city is
+   built, consumed once meshes/plants.glb has loaded. plantFallback rebuilds the
+   old blob trees if it never does. */
+const plantSpots={tree:[],floor:[],grass:[],flower:[]};
+let plantFallback=null;
 let lampGlowMat,lampHeadMat;
 const lampGlows=[],GLOW_DIST=115;
 {
@@ -1799,23 +1899,27 @@ const lampGlows=[],GLOW_DIST=115;
   leafBits2.push(nut);
  }
  /* a broadleaf: overlapping closed blobs, so there is no angle that sees in */
- function addBroadleaf(px,pz){
+ function addBroadleafBlob(px,pz,tb,lb,lb2){
   const H=rand(2.6,3.8),R=rand(1.7,2.6);
-  trunkBits.push(new THREE.CylinderGeometry(.16,.26,H,7).translate(px,H/2,pz));
+  tb.push(new THREE.CylinderGeometry(.16,.26,H,7).translate(px,H/2,pz));
   const n=3+((Math.random()*2)|0);
   for(let k=0;k<n;k++){
    const b=new THREE.IcosahedronGeometry(R*rand(.62,.92),1);
    b.applyMatrix4(_m4().makeScale(1,rand(.72,.92),1));
    b.translate(px+rand(-R*.45,R*.45),H+rand(.1,R*.55),pz+rand(-R*.45,R*.45));
-   (k%2?leafBits:leafBits2).push(b);
+   (k%2?lb:lb2).push(b);
   }
  }
+ /* the broadleaf is a real tree model now; this just reserves the spot */
+ function addBroadleaf(px,pz){plantSpots.tree.push({x:px,z:pz})}
  /* the shoreline palms */
  for(let i=0;i<30;i++){const a=rand(6.3),r=GS/2-rand(8,26);addPalm(Math.cos(a)*r,Math.sin(a)*r)}
  /* parks get a proper stand of trees rather than three lonely palms */
  for(const pk of parks){
   for(let k=0;k<4;k++){const x=pk.x+rand(-15,15),z=pk.z+rand(-15,15);addPalm(x,z);addProp(x,z,.34)}
   for(let k=0;k<5;k++){const x=pk.x+rand(-16,16),z=pk.z+rand(-16,16);addBroadleaf(x,z);addProp(x,z,.30)}
+  for(let k=0;k<64;k++)plantSpots.grass.push({x:pk.x+rand(-19.5,19.5),z:pk.z+rand(-19.5,19.5)});
+  for(let k=0;k<34;k++)plantSpots.flower.push({x:pk.x+rand(-19,19),z:pk.z+rand(-19,19)});
  }
 
  /* ---- the jungle district ----
@@ -1829,15 +1933,18 @@ const lampGlows=[],GLOW_DIST=115;
     you cannot drive through is far more annoying than one you can. */
  {
   const bushBits=[];
-  function addUndergrowth(px,pz){
+  function addUndergrowthBlob(px,pz,lb,bb){
    const n=2+((Math.random()*3)|0);
    for(let k=0;k<n;k++){
     const R=rand(.55,1.35);
     const b=new THREE.IcosahedronGeometry(R,0);
     b.applyMatrix4(_m4().makeScale(rand(.9,1.4),rand(.45,.75),rand(.9,1.4)));
     b.translate(px+rand(-1.1,1.1),R*rand(.30,.55),pz+rand(-1.1,1.1));
-    (Math.random()<.5?leafBits:bushBits).push(b);
+    (Math.random()<.5?lb:bb).push(b);
    }
+  }
+  function addUndergrowth(px,pz){
+   for(let k=0;k<2;k++)plantSpots.floor.push({x:px+rand(-1.1,1.1),z:pz+rand(-1.1,1.1)});
   }
   for(let bi=JUNGLE.i0;bi<=JUNGLE.i1;bi++)for(let bj=JUNGLE.j0;bj<=JUNGLE.j1;bj++){
    const cx=roadC(bi)+ROAD/2+BLOCK/2, cz=roadC(bj)+ROAD/2+BLOCK/2;
@@ -1855,13 +1962,16 @@ const lampGlows=[],GLOW_DIST=115;
    /* floor cover, no collision */
    for(let k=0;k<34;k++)addUndergrowth(cx+rand(-H,H),cz+rand(-H,H));
   }
-  /* a third leaf tone so the mass does not read as one flat green */
-  if(bushBits.length){
-   const m=new THREE.Mesh(mergeG(bushBits),
-    new THREE.MeshStandardMaterial({color:0x1f5c2e,roughness:.68,metalness:.03,
-                                    envMapIntensity:.4,side:THREE.DoubleSide}));
-   m.castShadow=true;m.receiveShadow=true;scene.add(m);
-  }
+  /* The old blob trees and bushes, rebuilt from the same spots, but only if
+     the plant pack could not be loaded. */
+  plantFallback=()=>{
+   const tb=[],lb=[],lb2=[],bb=[];
+   for(const s of plantSpots.tree)addBroadleafBlob(s.x,s.z,tb,lb,lb2);
+   for(let i=0;i<plantSpots.floor.length;i+=2)addUndergrowthBlob(plantSpots.floor[i].x,plantSpots.floor[i].z,lb,bb);
+   const mk=(list,mat)=>{if(!list.length)return;const m=new THREE.Mesh(mergeG(list),mat);m.castShadow=true;m.receiveShadow=true;scene.add(m)};
+   mk(tb,trunkMat);mk(lb,leafMat);mk(lb2,leafMat2);
+   mk(bb,new THREE.MeshStandardMaterial({color:0x1f5c2e,roughness:.68,metalness:.03,envMapIntensity:.4,side:THREE.DoubleSide}));
+  };
  }
  /* street trees: a palm on the pavement at every other junction corner */
  for(let i=0;i<=BLOCKS;i++)for(let j=0;j<=BLOCKS;j++){
@@ -2246,18 +2356,18 @@ function makeCar(color,cop,kind){
  const g=new THREE.Group();
  /* police always drive the saloon; everyone else gets a random silhouette */
  /* Police drive a saloon, not whichever body happens to be first in the pack. */
- const V=cop?(VEHICLES.find(v=>v.name==='Sedan')||VEHICLES[0])
+ const V=cop?(VEHICLES.find(v=>v.copCar)||VEHICLES.find(v=>v.name==='Sedan')||VEHICLES[0])
             :(VEHICLES[kind]||pick(VEHICLES));
- /* A helicopter is not a car with different boxes on it - no wheels, no cab,
+ /* A tank is not a car with different boxes on it - no wheels, no cab,
     no lamp pods - so anything that builds itself does so and returns. */
  if(V.build){
   const cg=V.build(color,V);
   cg.userData.kind=V.name;
-  cg.userData.isHeli=!!V.heli;cg.userData.isTank=!!V.tank;
+  cg.userData.isTank=!!V.tank;
   cg.userData.len=(V.dims&&V.dims.l)||5;cg.userData.wid=(V.dims&&V.dims.w)||2;
   return cg;
  }
- g.userData.kind=V.name;g.userData.isHeli=!!V.heli;g.userData.isTank=!!V.tank;
+ g.userData.kind=V.name;g.userData.isTank=!!V.tank;
  g.userData.len=(V.dims&&V.dims.l)||V.axle*2+1.5;
  g.userData.wid=(V.dims&&V.dims.w)||1.96;
  g.userData.handling=V.handling||null;g.userData.wheelR=V.wheelR||null;g.rotation.order='YXZ';
@@ -2267,6 +2377,7 @@ function makeCar(color,cop,kind){
  /* A TRELLIS body carries its own baked paint, dirt and trim in one texture.
     Tinting it per-instance would fight the bake, so it is used as-is. */
  const paint=V.named?V.bodyMats
+            :V.parts?V.partMats
             :V.trellis?V.trellisMat
             :cop?(V.pack?packPaintFor(V,'#e9edf2'):copBodyMat)
             :(V.pack?packPaintFor(V,color):bm);
@@ -2300,9 +2411,23 @@ function makeCar(color,cop,kind){
    const hold=new THREE.Group();hold.position.set(wx,V.wheel,wz);
    const w=new THREE.Mesh(V.geoWheel,tireMat);w.rotation.z=Math.PI/2;hold.add(w);g.add(hold);wheels.push(hold);
   }
- }else if(V.wheelSpec){
+ }else if(V.parts){
+  /* Modelled wheels, one mesh per tyre with its rim and brake already in the
+     right place. Front pair first, because stepCar steers wheels[0] and [1]. */
+  if(V.partWheels)for(const q of V.partWheels){
+   const hold=new THREE.Group();hold.position.set(q.x,q.y,q.z);
+   const wm=new THREE.Mesh(q.geo,q.mats);
+   wm.castShadow=true;hold.add(wm);
+   g.add(hold);wheels.push(hold);
+  }
+  if(V.wheelSpec){const lin=new THREE.Mesh(archGeoFor(V),archMat);lin.userData.liner=true;g.add(lin)}
+ }else if(V.wheelSpec&&!(V.named&&V.namedWheels)&&!(V.trellis&&V.trellisWheels)){
   /* clean cylinders in the holes carved out of the generated shell. Front pair
-     first, because stepCar steers wheels[0] and wheels[1]. */
+     first, because stepCar steers wheels[0] and wheels[1].
+     Not for TRELLIS or named cars that HAVE real wheels: they also carry a
+     wheelSpec (the arch liner needs it), so this branch used to catch them
+     first and every one of them rolled on the same black cylinders while its
+     modelled, textured tyres were cut out of the shell and thrown away. */
   for(const sp of V.wheelSpec){
    const hold=new THREE.Group();hold.position.set(sp.x,sp.r,sp.z);
    const tyre=new THREE.Mesh(wheelGeoFor(sp.r),tireMat);
@@ -2372,8 +2497,8 @@ function makeCar(color,cop,kind){
 function addCar(o){
  const c=Object.assign({x:0,z:0,h:0,vx:0,vz:0,hp:100,sp:0,spd:0,dead:false,driver:null},o);
  c.m=makeCar(c.color||'#c8c8c8',c.type==='cop',c.kind);
- c.heli=!!c.m.userData.isHeli;c.tank=!!c.m.userData.isTank;
- c.m.position.set(c.x,c.alt||0,c.z);c.m.rotation.y=c.h;
+ c.tank=!!c.m.userData.isTank;
+ c.m.position.set(c.x,0,c.z);c.m.rotation.y=c.h;
  scene.add(c.m);cars.push(c);return c;
 }
 function removeCar(c){if(c.gone)return;c.gone=true;scene.remove(c.m)}
@@ -2657,13 +2782,6 @@ function obbVsOBB(A,B){
  return {nx:bnx,nz:bnz,pen:best};
 }
 function separate(a,b){
- /* A helicopter is not part of a traffic jam. It is 13 metres long and 11
-    across, so on the ground its footprint overlaps half a street, and the
-    player-involved branch below then charges it collision damage every frame
-    for cars it is merely parked among. The result was a machine destroyed on
-    the pad, at hp -3, before the rotor had finished spinning up - and the
-    player thrown out of it. Once airborne it is not in the same space at all. */
- if(a.heli||b.heli)return;
  if(a.gone||b.gone)return;
  const dx=b.x-a.x,dz=b.z-a.z,d=Math.hypot(dx,dz);
  if(d===0)return;
@@ -2724,8 +2842,6 @@ let legL,legR,armL,armR;
 function enterExit(){
  if(player.mode==='drive'){
   if(player.car.sp>6)return;
-  /* stepping out at altitude is a long way down */
-  if(player.car.heli&&(player.car.alt||0)>1.2){toast('Land first','warn');return}
   exitCar();return;
  }
  let best=null,bd=4.5;
@@ -2761,7 +2877,6 @@ function enterExit(){
 }
 function exitCar(){
  const c=player.car;if(!c)return;
- if(c.heli){c.alt=0;c.vf=0;c.rotorRpm=0;syncCar(c)}
  c.driver=null;player.car=null;player.mode='foot';
  player.x=c.x+Math.cos(c.h)*2.3;player.z=c.z-Math.sin(c.h)*2.3;
  player.vx=player.vz=0;player.h=c.h;
@@ -2902,7 +3017,7 @@ function updateFoot(dt){
 function punch(){
  if(punchT>0)return;
  punchT=PUNCH_TIME;punchLanded=false;punchSide=-punchSide;
- sfx(190,.09,'square',.05);
+ sfx(190,.09,'square',.05);buzz(12);
 }
 function resolvePunch(){
  const fx=Math.sin(player.h),fz=Math.cos(player.h);
@@ -3169,7 +3284,7 @@ function updateTraffic(dt){
   if(c.t>CITY/2+30)c.t=-CITY/2-30;if(c.t<-CITY/2-30)c.t=CITY/2+30;
   syncTraffic(c);
  }
- if(n<32&&Math.random()<dt*1.8)spawnTrafficCar();
+ if(n<TRAFFIC_MAX&&Math.random()<dt*1.8)spawnTrafficCar();
 }
 
 /* ---- police ---- */
@@ -3484,7 +3599,6 @@ function engineProfile(V){
  const len=d.l||4.5, hgt=d.h||1.45, max=h.max||42;
  const heavy=len>4.8||hgt>1.68;
  const quick=max>=45;
- if(V&&V.heli)return{base:16,span:10,sub:.85,h2:.10,h3:.02,noise:.75,cut:900,idle:.28};
  if(V&&V.tank)return{base:32,span:46,sub:.95,h2:.30,h3:.05,noise:.55,cut:760,idle:.20};
  if(quick) return{base:60,span:172,sub:.24,h2:.42,h3:.26,noise:.22,cut:3100,idle:.06};
  if(heavy) return{base:44,span:96, sub:.72,h2:.22,h3:.05,noise:.34,cut:1150,idle:.09};
@@ -3959,6 +4073,11 @@ const cloudDayCol=new THREE.Color(0xfdfaf4),cloudDayDark=new THREE.Color(0x7898b
       cloudDuskCol=new THREE.Color(0xffb870),cloudDuskDark=new THREE.Color(0x604870);
 const sunDir=new THREE.Vector3();
 const _skyFill=new THREE.Color(0x8cb8e4);
+/* Moonlight. The night sky colour is nearly black, and it was also the only
+   thing lighting a surface the lamps do not reach, so the street between
+   them vanished. A cool blue fill keeps the road and the people on it legible
+   without lifting the neon off the dark. */
+const _moonFill=new THREE.Color(0x3a5486);
 /* Colours for the hemisphere light's ground bounce — warm in daylight
    (sun hitting concrete and sand), cool blue-grey at night (moonlit asphalt) */
 const _hemiGroundDay=new THREE.Color(0x8a7a5e),_hemiGroundNight=new THREE.Color(0x1e1c1a),
@@ -4000,13 +4119,13 @@ function updateSky(dt){
   scene.fog.color.copy(skyU.hor.value).lerp(skyU.top.value,.28*dayAmt).lerp(cDusk,duskAmt*.25);
   sun.color.copy(sunNight).lerp(sunDay,dayAmt).lerp(cDusk,duskAmt*.45);
   /* a cool key from above at night - without it the city is unlit geometry */
-  hemi.color.copy(cHorN).lerp(_skyFill,dayAmt);
+  hemi.color.copy(cHorN).lerp(_moonFill,.85).lerp(_skyFill,dayAmt);
   /* Ground bounce tracks the time of day: warm sand/concrete in sunlight,
      amber at dusk, cool asphalt at night */
   hemi.groundColor.copy(_hemiGroundNight).lerp(_hemiGroundDay,dayAmt).lerp(_hemiGroundDusk,duskAmt*.6);
   /* GTA V daylight: the key light is strong enough to punch hard shadows
      but the hemisphere fill keeps the shadow side readable */
-  sun.intensity=.25+dayAmt*3.2;
+  sun.intensity=.60+dayAmt*2.85;
  /* Below the horizon the sun casts nothing meaningful, but three.js was still
     re-rendering the whole city into a 2048px shadow map every frame for it.
     Dropping the pass after dark removes an entire scene traversal from the
@@ -4022,7 +4141,7 @@ function updateSky(dt){
     else. Outdoors the sky is a genuinely bright source; the daytime figure
     goes UP, not down, and the contrast comes from the key being higher
     still. */
-  hemi.intensity=.58+dayAmt*.62;
+  hemi.intensity=.95+dayAmt*.33;
  /* ---- texel-snapped shadow centre ----
     Build the light's own basis, express the centre in it, round to whole
     shadow texels, and convert back. Snapping in WORLD axes instead would only
@@ -4135,7 +4254,10 @@ function updateSky(dt){
  for(const m of signMats)m.opacity=.2+nightAmt*.5;
  if(signalLensMat)signalLensMat.color.setRGB(.44+nightAmt*.5,.29+nightAmt*.22,.13);
  if(skylineMat){
-  skylineMat.color.copy(skyU.hor.value).multiplyScalar(.55).lerp(new THREE.Color(0x0d1420),.55+nightAmt*.3);
+  /* atmospheric perspective: dim the surface and add the fog colour back as
+     light, so the ridges dissolve toward the horizon instead of glowing */
+  skylineMat.color.setScalar(.70+dayAmt*.08);
+  skylineMat.emissive.copy(scene.fog.color).multiplyScalar(.05+dayAmt*.09);
  }
 }
 
@@ -4144,6 +4266,20 @@ let state='title',camShake=0,camMode=0,deadTimer=0;
 function startGame(){
  if(state!=='title')return;
  initAudio();
+ /* A phone browser's address bar costs a fifth of a landscape screen. This tap
+    is the user gesture fullscreen needs; where it is refused (iOS Safari) the
+    game simply stays in the page. */
+ if(PHONE){
+  try{
+   const de=document.documentElement;
+   const fs=de.requestFullscreen||de.webkitRequestFullscreen;
+   if(fs&&!document.fullscreenElement){
+    const r=fs.call(de);
+    const lock=()=>{try{screen.orientation&&screen.orientation.lock&&screen.orientation.lock('landscape').catch(()=>{})}catch(e){}};
+    if(r&&r.then)r.then(lock).catch(()=>{});else lock();
+   }
+  }catch(e){}
+ }
  titleEl.classList.add('gone');
  hudEl.classList.remove('hidden');
  state='play';
@@ -4244,11 +4380,32 @@ function wantLock(){
  if(TOUCH)return;
  if(locked||state!=='play')return;
  const r=cvEl.requestPointerLock&&cvEl.requestPointerLock({unadjustedMovement:true});
- if(r&&r.catch)r.catch(()=>{try{cvEl.requestPointerLock()}catch(e){}});
+ if(r&&r.catch)r.catch(()=>{
+  try{
+   const r2=cvEl.requestPointerLock();
+   if(r2&&r2.catch)r2.catch(lockRefused);
+  }catch(e){lockRefused()}
+ });
+}
+/* A browser will not re-capture the mouse without a click once ESC has
+   released it, and closing the menu with ESC is a key press, not a click. The
+   game carries on - there is just no mouse-look until the next click. */
+let _lockToastAt=0;
+function lockRefused(){
+ if(locked||state!=='play'||TOUCH)return;
+ const n=performance.now();
+ if(n-_lockToastAt<4000)return;
+ _lockToastAt=n;
+ toast('Click the game to look around');
 }
 document.addEventListener('pointerlockchange',()=>{
  locked=(document.pointerLockElement===cvEl);
- if(!locked&&state==='play'){state='pause';pauseEl.classList.remove('hidden')}
+ /* Browsers take Escape for themselves while the pointer is captured: it
+    releases the lock and the page never sees the keydown. This event is
+    therefore the ONLY signal that ESC was pressed in-game, so it has to open
+    the menu itself. It used to show a bare "click to resume" overlay instead,
+    and the real menu only appeared on a second ESC. */
+ if(!locked&&state==='play'&&!setOpen)openSettings();
 });
 document.addEventListener('pointerlockerror',()=>{},false);
 addEventListener('mousemove',e=>{
@@ -4284,12 +4441,7 @@ cvEl.addEventListener('mousedown',e=>{
    Windows laptop with a touchscreen reports a FINE primary pointer and must
    keep the desktop controls; a phone reports coarse. ?touch=1 and ?touch=0
    force it either way, which is the only way to test this from a desktop. */
-const TOUCH=(()=>{
- const q=new URLSearchParams(location.search).get('touch');
- if(q==='1')return true;
- if(q==='0')return false;
- try{return matchMedia('(pointer:coarse)').matches}catch(e){return false}
-})();
+const TOUCH=PHONE;
 const touchEl=$('touch'),stickEl=$('stick'),knobEl=$('knob');
 /* -1..1 per axis; y is positive DOWN the screen, the way the event is */
 const tMove={x:0,y:0};
@@ -4365,8 +4517,8 @@ function bindBtn(el,down,up){
 bindBtn($('bAct'),
  ()=>{if(state!=='play')return;
       if(player.mode!=='drive'){punch();return}
-      /* in a tank the big button is the gun; in a helicopter it is the
-         collective; in anything else it is still the handbrake */
+      /* in a tank the big button is the gun; in anything else it is the
+         handbrake */
       if(player.car&&player.car.tank){fireTank(player.car);return}
       tHand=true;},
  ()=>{tHand=false});
@@ -4394,8 +4546,7 @@ function syncTouchUI(){
   _tMode=_tKey;
   const drive=player.mode==='drive';
   const inTank=drive&&player.car&&player.car.tank;
-  const inHeli=drive&&player.car&&player.car.heli;
-  $('bAct').textContent=inTank?'FIRE':(inHeli?'LIFT':(drive?'BRAKE':'PUNCH'));
+  $('bAct').textContent=inTank?'FIRE':(drive?'BRAKE':'PUNCH');
   $('bAux').textContent=drive?'CAM':'ASK';
   $('bEnter').textContent=drive?'EXIT':'ENTER';
  }
@@ -4444,17 +4595,36 @@ let setOpen=false,_setPaused=false;
 /* One panel, several pages. ESC lands on the root; everything else hangs off
    it, so there is exactly one way in and the HUD does not have to carry a
    permanent button or a permanent wall of key hints. */
-const SET_PAGES={root:'PAUSED',guide:'HOW TO PLAY',cheats:'CHEATS & OPTIONS',spawn:'SPAWN A VEHICLE'};
-let setPage='root';
+const SET_PAGES={root:'PAUSED',chars:'CHOOSE CHARACTER',guide:'HOW TO PLAY',cheats:'CHEATS & OPTIONS',spawn:'SPAWN A VEHICLE'};
+let setPage='root',_tankAsked=false;
 function showPage(p){
  if(p==='resume'){closeSettings();return}
+ if(p==='respawn'){
+  /* the Godot build's R key: back to the spawn plaza, on foot, heat cleared */
+  closeSettings();
+  if(player.mode==='drive')exitCar();
+  respawn();
+  toast('Back at the start');
+  return;
+ }
  setPage=SET_PAGES[p]?p:'root';
  for(const k in SET_PAGES){
   const el=$('pg'+k.charAt(0).toUpperCase()+k.slice(1));
   if(el)el.classList.toggle('hidden',k!==setPage);
  }
  $('setTitle').textContent=SET_PAGES[setPage];
- if(setPage==='spawn')buildSpawnMenu();
+ if(setPage==='root'){
+  const mi=$('menuInfo');
+  if(mi){
+   const st='★'.repeat(Math.min(5,player.wanted|0))+'☆'.repeat(5-Math.min(5,player.wanted|0));
+   mi.innerHTML='<span>$'+(player.money|0)+'</span><span>'+st+'</span><span>'+(TOUCH?'tap the cross to resume':'ESC to resume')+'</span>';
+  }
+ }
+ if(setPage==='spawn'){
+  buildSpawnMenu();
+  /* the tank is a 3.4 MB download a phone should not pay up front */
+  if(PHONE&&!_tankAsked){_tankAsked=true;applyAircraft().then(n=>{if(n&&setPage==='spawn')buildSpawnMenu()})}
+ }
  if(setPage==='guide')buildGuide();
  if(setPage==='cheats')syncSettings();
  /* a long list should not open half-scrolled from last time */
@@ -4483,10 +4653,6 @@ function buildGuide(){
   ['Driving',[
    ['W / S','Throttle / brake and reverse'],['A / D','Steer'],
    ['SPACE','Handbrake'],['C','Change camera']]],
-  ['Helicopter',[
-   ['SPACE','Collective - hold to climb, release to descend'],
-   ['W / S','Tilt forward / slow down'],['A / D','Yaw'],
-   ['F','Get out (land first)']]],
   ['Tank',[['B','Fire the main gun']]],
   ['World',[
    ['M','Map'],['[ ]','Change radio station'],['N','Skip track'],
@@ -4496,12 +4662,12 @@ function buildGuide(){
  ];
  const touch=[
   ['Touch controls',[
-   ['Left stick','Walk, drive, or fly'],
+   ['Left stick','Walk or drive'],
    ['Drag right','Look around'],
-   ['Big button','Punch, handbrake, tank gun, or helicopter collective'],
+   ['Big button','Punch, handbrake, or tank gun'],
    ['ENTER','Get in or out'],['MAP','Open the map'],['ASK / CAM','Ask a witness, or change camera']]]
  ];
- const use=TOUCH?touch.concat(kb.slice(4)):kb;
+ const use=TOUCH?touch.concat(kb.slice(3)):kb;
  $('guideKeys').innerHTML=use.map(([title,rows])=>
    '<section><h4>'+title+'</h4>'+
    rows.map(([k,d])=>'<div class="row"><span>'+k+'</span>'+d+'</div>').join('')+
@@ -4583,8 +4749,7 @@ function buildSpawnMenu(){
   /* a word about what it is, so the list is readable rather than 19 names */
   const d=v.dims||{}, h=v.handling||{};
   let note;
-  if(v.heli)note='AIRCRAFT';
-  else if(v.tank)note='ARMOUR';
+  if(v.tank)note='ARMOUR';
   else if((h.max||0)>=45)note='FAST';
   else if((d.l||0)>4.8||(d.h||0)>1.68)note='HEAVY';
   else note=Math.round(h.max||40)+' TOP';
@@ -4600,14 +4765,12 @@ function spawnVehicle(kind){
     the way they are looking */
  const yaw=camYaw;
  const fx=Math.sin(yaw), fz=Math.cos(yaw);
- /* far enough out that a 13m rotor disc is not already inside the player or
-    whatever they are standing next to */
- const dist=(V.dims&&V.dims.l?V.dims.l:4.5)*.8+(V.heli?8:4);
+ const dist=(V.dims&&V.dims.l?V.dims.l:4.5)*.8+4;
  const c=addCar({x:player.x+fx*dist, z:player.z+fz*dist, h:yaw,
                  color:pick(CARCOLS), kind, ai:null});
  c.alt=0;
  syncCar(c);
- toast('Spawned '+V.name+(V.heli?' - hold SPACE to lift off':V.tank?' - B to fire':''),'cash');
+ toast('Spawned '+V.name+(V.tank?' - B to fire':''),'cash');
  return c;
 }
 $('segSpawn').addEventListener('click',e=>{
@@ -4972,26 +5135,90 @@ let parkedMesh=null;
   put(green,new THREE.MeshLambertMaterial({color:0x2f5a37}));
  }
 
-/* ---- distant skyline so the horizon is a city, not an edge ---- */
- const far=[];
- /* The ring used to start at GS/2 + 60. GS/2 IS the beach - the island stops
-    there - so sixty metres out put unlit boxes in the surf, close enough to
-    be read as geometry rather than as distance: a flat blue slab sitting in
-    the water between the coast road and the horizon, which is the "blank blue
-    box" glitch. A skyline has to be far enough away that no parallax against
-    the shoreline is visible, so it starts well past the water now.
+/* ---- the far shore ----
+   The horizon used to be 150 unlit boxes: flat pale slabs that turned the same
+   colour as the sky and read as cardboard. Behind a coast road a tropical
+   island wants hills - so this is a ring of headlands and peaks, each a cone
+   pushed about by noise, coloured by height (jungle green, then bare rock),
+   with the lower flanks sunk below the waterline so they meet the sea the way
+   a real shore does. It is ~14k triangles in one draw.
 
-    Pushing it out costs apparent size, so the boxes grow to compensate: at
-    600-1000m a 40m block subtends less than a 25m one did at 350m. */
- for(let k=0;k<150;k++){
-  const a=rand(6.283),r=GS/2+rand(340,760);
-  const w=rand(22,62),d=rand(22,62),h=rand(45,215);
-  far.push(new THREE.BoxGeometry(w,h,d).translate(Math.cos(a)*r,h/2,Math.sin(a)*r));
+   It is lit by the real sun and sky like everything else, and hazed by hand
+   rather than by scene fog: the fog ends at 720m and these stand between 550
+   and 820, so fog alone would erase the nearer ones and leave the far ones as
+   a flat pale wall. */
+ function buildFarShore(){
+  let seed=20260912;
+  const rnd=()=>(seed=(seed*16807)%2147483647)/2147483647;
+  const hash=(x,y)=>{const v=Math.sin(x*127.1+y*311.7)*43758.5453;return v-Math.floor(v)};
+  const vn=(x,y)=>{
+   const ix=Math.floor(x),iy=Math.floor(y),fx=x-ix,fy=y-iy,ux=fx*fx*(3-2*fx),uy=fy*fy*(3-2*fy);
+   return lerp(lerp(hash(ix,iy),hash(ix+1,iy),ux),lerp(hash(ix,iy+1),hash(ix+1,iy+1),ux),uy);
+  };
+  /* [bearing deg, distance from centre, height, base radius] - fixed, so the
+     horizon is a place and not a different roll on every load */
+  const PEAKS=[[6,640,118,215],[24,705,178,255],[46,615,92,190],[72,765,138,245],[99,690,208,275],
+   [126,745,126,225],[155,655,156,235],[188,725,98,215],[216,685,190,265],[246,755,130,235],
+   [274,632,104,205],[302,712,166,255],[332,662,120,220]];
+  const geos=[];
+  const col=new THREE.Color(),cA=new THREE.Color(),cB=new THREE.Color();
+  const mountain=(cx,cz,H,R,off)=>{
+   const g=new THREE.ConeGeometry(R,H,30,11,true);
+   const pos=g.attributes.position,colA=new Float32Array(pos.count*3);
+   for(let i=0;i<pos.count;i++){
+    let x=pos.getX(i),y=pos.getY(i),z=pos.getZ(i);
+    const t=clamp((y+H/2)/H,0,1);                        /* 0 foot .. 1 summit */
+    const ang=Math.atan2(z,x);
+    const n=vn(ang*2.4+off,t*3.1)*.55+vn(ang*7+off*2,t*8)*.28+vn(ang*19,t*21)*.10;
+    /* concave flanks that flare out at the foot, then roughened by the noise */
+    const prof=Math.pow(1-t,.78)*(1+(n-.45)*.85);
+    const rr=R*prof*(t>.985?0:1);
+    x=Math.cos(ang)*rr;z=Math.sin(ang)*rr;
+    y+=(n-.4)*H*.07*t;
+    pos.setXYZ(i,x+cx,y-14+H/2,z+cz);
+    /* colour: jungle to rock, with grain from the same noise */
+    const rock=clamp((t-.52)/.22,0,1);
+    cA.setRGB(.07+n*.07,.22+n*.12,.07+n*.05);            /* green */
+    cB.setRGB(.34+n*.10,.30+n*.09,.26+n*.07);            /* rock  */
+    col.copy(cA).lerp(cB,rock);
+    if(t<.12)col.lerp(cA.setRGB(.55,.50,.38),.5);        /* a hint of beach at the foot */
+    colA[i*3]=col.r;colA[i*3+1]=col.g;colA[i*3+2]=col.b;
+   }
+   g.setAttribute('color',new THREE.BufferAttribute(colA,3));
+   g.computeVertexNormals();
+   return g;
+  };
+  PEAKS.forEach(([deg,dist,H,R],i)=>{
+   const a=deg*Math.PI/180,cx=Math.cos(a)*dist*1.22,cz=Math.sin(a)*dist*1.22;
+   geos.push(mountain(cx,cz,H,R,i*3.7));
+   /* a lower shoulder beside the summit, so it is a massif and not a cone */
+   const sa=a+(rnd()-.5)*.35,sd=dist*1.22+rand(-40,40),sr=R*.62,sh=H*rand(.45,.62);
+   geos.push(mountain(Math.cos(sa)*sd+Math.cos(a+1.57)*R*.55,Math.sin(sa)*sd+Math.sin(a+1.57)*R*.55,sh,sr,i*5.1+2));
+  });
+  /* mergeG expects uv; these have none, so merge by hand. Each mountain is
+     indexed and has had its normals averaged across shared vertices already;
+     un-indexing and recomputing them here would give every triangle its own
+     normal and the whole range would read as faceted paper. */
+  let tot=0;for(const g of geos)tot+=g.index.count;
+  const P=new Float32Array(tot*3),C=new Float32Array(tot*3),N=new Float32Array(tot*3);
+  let at=0;
+  for(const g of geos){
+   const ix=g.index.array,pa=g.attributes.position.array,ca=g.attributes.color.array,na=g.attributes.normal.array;
+   for(let i=0;i<ix.length;i++,at++){
+    const v=ix[i]*3;
+    P[at*3]=pa[v];P[at*3+1]=pa[v+1];P[at*3+2]=pa[v+2];
+    C[at*3]=ca[v];C[at*3+1]=ca[v+1];C[at*3+2]=ca[v+2];
+    N[at*3]=na[v];N[at*3+1]=na[v+1];N[at*3+2]=na[v+2];
+   }
+  }
+  const out=new THREE.BufferGeometry();
+  out.setAttribute('position',new THREE.BufferAttribute(P,3));
+  out.setAttribute('color',new THREE.BufferAttribute(C,3));
+  out.setAttribute('normal',new THREE.BufferAttribute(N,3));
+  return out;
  }
- /* Unlit and fog-tinted so it reads as distance, not as grey boxes parked
-    on the horizon. */
- skylineMat=new THREE.MeshBasicMaterial({color:0x141a24,fog:true});
- const skyline=new THREE.Mesh(mergeG(far),skylineMat);
+ skylineMat=new THREE.MeshLambertMaterial({vertexColors:true,fog:false,side:THREE.DoubleSide});
+ const skyline=new THREE.Mesh(buildFarShore(),skylineMat);
  skyline.renderOrder=-1;
  scene.add(skyline);
 }
@@ -5228,9 +5455,9 @@ function updateWitness(dt){
 /* ================= /WITNESS SYSTEM ================= */
 
 addCar({x:roadC(4)-5,z:roadC(4)+16,h:0,color:'#e8b23c'});
-for(let i=0;i<30;i++)spawnTrafficCar();
+for(let i=0;i<TRAFFIC_START;i++)spawnTrafficCar();
 /* the crowd can be this big because most of it is one draw each */
-for(let i=0;i<44;i++)spawnPed();
+for(let i=0;i<PEDS_START;i++)spawnPed();
 
 
 /* ================= VISUAL SYSTEMS ================= */
@@ -5489,8 +5716,9 @@ function updateFX(dt){
  if(oceanMat&&oceanNormalTex){
   oceanNormalTex.offset.x=(fxTime*.014)%1;
   oceanNormalTex.offset.y=(fxTime*.009)%1;
-  oceanMat.envMapIntensity=1.6+dayAmt01*1.0+nightAmt01*.5;
-  oceanMat.roughness=lerp(.09,.22,wet);
+  oceanMat.envMapIntensity=.45+dayAmt01*.35+nightAmt01*.4;
+  oceanMat.roughness=lerp(.30,.42,wet);
+  oceanU.time.value=fxTime;oceanU.day.value=dayAmt01;
  }
 
  /* brake and reverse lamps on the car you are actually driving */
@@ -5780,7 +6008,7 @@ window.__vc={renderer,scene,camera,composer,VEHICLES,info:()=>({fps:perfFps,call
  setRain:v=>{rainOn=v},setTime:v=>{dayT=v},roadMesh:()=>roadMesh,roadMat:()=>roadMat,
  /* headless test hooks - let a script drive the sim without a compositor */
  dbg:{
-  stepCar,updateFoot,updateCamera,keys,makeCar,spawnTrafficCar,
+  stepCar,updateFoot,updateCamera,keys,makeCar,spawnTrafficCar,selectCharacter,
   qual:()=>({i:qual,name:TIERS[qual].n,auto:autoQual}),
   setQual:n=>{autoQual=false;qual=Math.max(0,Math.min(TIERS.length-1,n));applyQual(false);return TIERS[qual].n},
   reliefJobs:()=>reliefJobs.length,
@@ -6078,6 +6306,25 @@ async function applyTexturePack(){
    g.fillRect(0,W(CITY/2),GROUND_PX,GROUND_PX-W(CITY/2));      /* bottom band */
    g.fillRect(0,W(-CITY/2),W(-CITY/2),CITY*s);             /* left band */
    g.fillRect(W(CITY/2),W(-CITY/2),GROUND_PX-W(CITY/2),CITY*s); /* right band */
+   g.restore();
+   /* The generated sand tile is saturated orange; across forty metres of beach
+      on every side it dominated the frame. Pale it toward real dry sand, then
+      darken the last eleven metres where the sea keeps it wet. */
+   g.save();
+   g.fillStyle='rgba(233,221,197,.50)';
+   g.fillRect(0,0,GROUND_PX,W(-CITY/2));
+   g.fillRect(0,W(CITY/2),GROUND_PX,GROUND_PX-W(CITY/2));
+   g.fillRect(0,W(-CITY/2),W(-CITY/2),CITY*s);
+   g.fillRect(W(CITY/2),W(-CITY/2),GROUND_PX-W(CITY/2),CITY*s);
+   const wet=11*s,wc0='rgba(92,80,58,.62)',wc1='rgba(92,80,58,0)';
+   const strip=(x0,y0,x1,y1,rx,ry,rw,rh)=>{
+    const gr=g.createLinearGradient(x0,y0,x1,y1);gr.addColorStop(0,wc0);gr.addColorStop(1,wc1);
+    g.fillStyle=gr;g.fillRect(rx,ry,rw,rh);
+   };
+   strip(0,0,0,wet,0,0,GROUND_PX,wet);
+   strip(0,GROUND_PX,0,GROUND_PX-wet,0,GROUND_PX-wet,GROUND_PX,wet);
+   strip(0,0,wet,0,0,0,wet,GROUND_PX);
+   strip(GROUND_PX,0,GROUND_PX-wet,0,GROUND_PX-wet,0,wet,GROUND_PX);
    g.restore();
   }
   /* asphalt down every road */
@@ -6502,6 +6749,8 @@ async function applyHeroCharacter(){
  playerMesh.add(holder);
  addBlob(playerMesh,1.05);
  heroRig=rig;
+ heroRigCache=rig;
+ charId='cyber';
  legL=legR=armL=armR=null;   /* the old sliced-limb path is retired */
  return true;
 }
@@ -6562,6 +6811,10 @@ function poseHero(gait,phase,dt){
 }
 
 async function applyCharacters(){
+ await applyCharactersBase();
+ await initCharacterSelect();
+}
+async function applyCharactersBase(){
  /* The rigged model is the real player. The generated A-pose shell stays as
     the fallback for when the file is missing. */
  if(await applyHeroCharacter()){
@@ -6609,6 +6862,334 @@ async function applyCharacters(){
  toast('Generated characters loaded','cash');
 }
 
+/* ================= PLANT PACK =================
+   "Low poly trees, flowers and grass" by MMC Works (CC BY 4.0, see
+   CREDITS.txt) - 5,496 triangles for the lot, which is why it can simply be
+   scattered.
+
+   The park and jungle trees used to be overlapping icosahedra: a stack of
+   green balls on a stick. These are real trees with alpha-cut leaf cards, and
+   the floor cover is real grass and flowers instead of squashed blobs.
+
+   Every plant is one InstancedMesh per material, so a whole forest is a
+   handful of draws. The old blob versions are kept and only built if the pack
+   fails to load. */
+const PLANT_SPEC={
+ 'tree-stylized-01':{h:6.6},
+ 'tree-stylized-04-green':{h:7.4},
+ 'grass-bushes-01':{h:.78},
+ 'grass-bushes-02':{h:1.05},
+ 'plant-ground-green-01':{h:.58},
+ 'daisy-flower-diffuse-01':{h:.40},
+ 'daffodil-flower-01':{h:.52}
+};
+async function applyPlantPack(){
+ let gltf=null;
+ try{gltf=await new Promise((ok,bad)=>gltfLoader.load('meshes/plants.glb',ok,undefined,bad))}
+ catch(e){if(plantFallback)plantFallback();return false}
+ gltf.scene.updateMatrixWorld(true);
+ const groups={};
+ gltf.scene.traverse(o=>{
+  if(!o.isMesh||!o.geometry)return;
+  const key=Object.keys(PLANT_SPEC).find(k=>o.name.startsWith(k));
+  if(!key)return;
+  (groups[key]||(groups[key]=[])).push(o);
+ });
+ /* one standing-on-the-origin set of parts per species */
+ const species={};
+ for(const key in groups){
+  const parts=[];
+  const bb=new THREE.Box3();
+  for(const o of groups[key]){
+   const g=o.geometry.clone();
+   g.applyMatrix4(o.matrixWorld);
+   g.computeBoundingBox();bb.union(g.boundingBox);
+   const m=o.material;
+   const mat=new THREE.MeshLambertMaterial({
+    map:m.map||null,color:0xffffff,side:THREE.DoubleSide,
+    alphaTest:m.alphaMode==='MASK'||m.alphaTest>0?(m.alphaTest||.5):0});
+   if(mat.map)mat.map.colorSpace=THREE.SRGBColorSpace;
+   mat.color.setScalar(1.55);       /* the pack's textures are authored dark */
+   parts.push({geo:g,mat});
+  }
+  const k=PLANT_SPEC[key].h/Math.max(bb.max.y-bb.min.y,1e-6);
+  const cx=(bb.max.x+bb.min.x)/2,cz=(bb.max.z+bb.min.z)/2;
+  for(const p of parts){p.geo.translate(-cx,-bb.min.y,-cz);p.geo.scale(k,k,k)}
+  species[key]=parts;
+ }
+ const m4=new THREE.Matrix4(),q=new THREE.Quaternion(),pv=new THREE.Vector3(),sv=new THREE.Vector3(),yAxis=new THREE.Vector3(0,1,0);
+ /* One InstancedMesh per map cell, not one for the whole city. A single
+    mesh has to disable frustum culling (its bounds would be the base plant's),
+    which means every tree in town is transformed every frame whichever way
+    you are facing. Cells keep their own bounds, so the ones behind you cost
+    nothing. A 3x3 grid is a few more draws for roughly a third of the
+    triangles at any moment. */
+ const CELLS=3,CELL=GS/CELLS;
+ const plant=(key,spots,scale0,scale1,shadow)=>{
+  const parts=species[key];
+  if(!parts||!spots.length)return;
+  const cells=new Map();
+  for(const s of spots){
+   const cx=clamp(Math.floor((s.x+GS/2)/CELL),0,CELLS-1),cz=clamp(Math.floor((s.z+GS/2)/CELL),0,CELLS-1);
+   const id=cz*CELLS+cx;
+   if(!cells.has(id))cells.set(id,[]);
+   cells.get(id).push(s);
+  }
+  for(const list of cells.values()){
+   for(const p of parts){
+    const im=new THREE.InstancedMesh(p.geo,p.mat,list.length);
+    list.forEach((s,i)=>{
+     q.setFromAxisAngle(yAxis,Math.random()*6.283);
+     const k=rand(scale0,scale1);
+     pv.set(s.x,0,s.z);sv.set(k,k*rand(.92,1.1),k);
+     m4.compose(pv,q,sv);im.setMatrixAt(i,m4);
+    });
+    im.instanceMatrix.needsUpdate=true;
+    im.computeBoundingSphere();
+    im.castShadow=!!shadow;im.receiveShadow=true;
+    scene.add(im);
+   }
+  }
+ };
+ /* trees: two species, mixed. The second is 1,100 triangles against the
+    first's 700, so a phone gets only the lighter one, and half as many. */
+ const A=[],B=[];
+ plantSpots.tree.forEach((s,i)=>{
+  if(PHONE){if(i%2)return;A.push(s)}
+  else (i%3===1?B:A).push(s);
+ });
+ plant('tree-stylized-01',A,.85,1.25,true);
+ plant('tree-stylized-04-green',B,.85,1.2,true);
+ /* jungle floor: dense, low, mixed */
+ const f1=[],f2=[],f3=[];
+ plantSpots.floor.forEach((s,i)=>(i%3===0?f1:i%3===1?f2:f3).push(s));
+ plant('grass-bushes-02',f1,1.1,1.8);
+ plant('plant-ground-green-01',f2,1.2,2.0);
+ plant('grass-bushes-01',f3,1.1,1.9);
+ /* park lawns: tufts, with flowers scattered through */
+ const g1=[],g2=[];
+ plantSpots.grass.forEach((s,i)=>(i%2?g1:g2).push(s));
+ plant('grass-bushes-01',g1,1.0,1.7);
+ plant('plant-ground-green-01',g2,1.0,1.7);
+ plant('daisy-flower-diffuse-01',plantSpots.flower.filter((s,i)=>i%2),1.0,1.7);
+ plant('daffodil-flower-01',plantSpots.flower.filter((s,i)=>!(i%2)),1.0,1.6);
+ return true;
+}
+
+/* ================= CHARACTER SELECT =================
+   Four playable people, the same four the Godot build offers.
+
+   One of them (the cyberpunk) is genuinely rigged and keeps the bone-driven
+   walk above. The other three are textured scans with no usable skeleton, so
+   they get the treatment the old shells got - cut into five pieces at the
+   joints and swung by hand - except that the cut KEEPS the UVs and the baked
+   texture, where the old slicer threw both away and painted by height.
+
+   Multi-material models are handled by giving every piece a geometry group per
+   source material, so a scan built from four materials stays four materials. */
+const CHAR_KEY='sta.character';
+const CHARACTERS=[
+ {id:'cyber', label:'Person 1', note:'cyberpunk', rigged:true, thumb:'textures/char_cyber.webp'},
+ {id:'street',label:'Person 2', note:'street',    file:'meshes/char_player.glb', yaw:0,  thumb:'textures/char_street.webp'},
+ {id:'duke',  label:'Female 1', note:'',          file:'meshes/char_duke.glb',   yaw:90, thumb:'textures/char_duke.webp'},
+ {id:'hijab', label:'Female 2', note:'hijab',     file:'meshes/char_hijab.glb',  yaw:0,  thumb:'textures/char_hijab.webp'}
+];
+/* The pictures on the cards are pre-rendered files, not drawn at runtime: the
+   picker is on the title screen, and rendering four portraits there would mean
+   downloading and slicing all four models (4 MB) before anyone had chosen one.
+   Only the person you actually play as is ever fetched. */
+let charId='cyber',charBusy=false,heroRigCache=null;
+const charFigs={};
+
+/* Pull every mesh of a loaded model out as world-space, non-indexed geometry
+   in its bind pose. A skinned mesh stores its vertices in a space the bones
+   then move, so those go through applyBoneTransform first. */
+function bakeCharMeshes(root){
+ root.updateMatrixWorld(true);
+ const out=[],v=new THREE.Vector3();
+ root.traverse(o=>{
+  if(!o.isMesh||!o.geometry||!o.geometry.attributes.position)return;
+  let g=o.geometry.clone();
+  if(o.isSkinnedMesh&&o.skeleton&&g.attributes.skinIndex){
+   const pos=g.attributes.position;
+   for(let i=0;i<pos.count;i++){v.fromBufferAttribute(pos,i);o.applyBoneTransform(i,v);pos.setXYZ(i,v.x,v.y,v.z)}
+  }
+  if(g.index)g=g.toNonIndexed();
+  if(!g.attributes.normal)g.computeVertexNormals();
+  if(!g.attributes.uv)g.setAttribute('uv',new THREE.Float32BufferAttribute(new Float32Array(g.attributes.position.count*2),2));
+  for(const k of Object.keys(g.attributes))if(k!=='position'&&k!=='normal'&&k!=='uv')g.deleteAttribute(k);
+  g.applyMatrix4(o.matrixWorld);
+  out.push({geo:g,mat:Array.isArray(o.material)?o.material[0]:o.material});
+ });
+ return out;
+}
+
+/* A scan's own material, calmed down: the exporter often leaves metalness and
+   roughness at values meant for a different lighting setup. */
+function charMat(m){
+ const o=new THREE.MeshStandardMaterial({
+  map:m.map||null,normalMap:m.normalMap||null,color:m.color?m.color.clone():0xffffff,
+  roughness:.82,metalness:0,envMapIntensity:.5,
+  transparent:!!m.transparent,alphaTest:m.alphaTest||0,opacity:m.opacity===undefined?1:m.opacity,
+  side:m.side===THREE.DoubleSide?THREE.DoubleSide:THREE.FrontSide});
+ if(o.map)o.map.colorSpace=THREE.SRGBColorSpace;
+ return o;
+}
+
+function sliceTexturedCharacter(root,def){
+ const meshes=bakeCharMeshes(root);
+ if(!meshes.length)return null;
+ const box=()=>{const b=new THREE.Box3();for(const m of meshes){m.geo.computeBoundingBox();b.union(m.geo.boundingBox)}return b};
+ if(def.yaw)for(const m of meshes)m.geo.rotateY(def.yaw*Math.PI/180);
+ let bb=box();
+ const k=CHAR_H/Math.max(bb.max.y-bb.min.y,1e-6);
+ for(const m of meshes)m.geo.scale(k,k,k);
+ bb=box();
+ for(const m of meshes)m.geo.translate(-(bb.max.x+bb.min.x)/2,-bb.min.y,-(bb.max.z+bb.min.z)/2);
+ bb=box();
+ const H=bb.max.y,hw=Math.max(bb.max.x,-bb.min.x);
+ const HIP=.47,SHOULDER=.82;
+ const pivots={torso:[0,0,0],legL:[-.09*H,HIP*H,0],legR:[.09*H,HIP*H,0],
+               armL:[-.21*H,SHOULDER*H,0],armR:[.21*H,SHOULDER*H,0]};
+ const keys=['torso','legL','legR','armL','armR'];
+ const buckets={};
+ for(const key of keys)buckets[key]=meshes.map(()=>({P:[],N:[],U:[]}));
+ meshes.forEach((m,mi)=>{
+  const pos=m.geo.attributes.position,nrm=m.geo.attributes.normal,uv=m.geo.attributes.uv;
+  for(let t=0;t<pos.count;t+=3){
+   const cx=(pos.getX(t)+pos.getX(t+1)+pos.getX(t+2))/3;
+   const cy=(pos.getY(t)+pos.getY(t+1)+pos.getY(t+2))/3;
+   const fy=cy/H,fx=cx/hw;
+   let key;
+   if(fy<HIP)key=cx<0?'legL':'legR';
+   else if(fy<SHOULDER+.04&&Math.abs(fx)>.52)key=cx<0?'armL':'armR';
+   else key='torso';
+   const b=buckets[key][mi],pv=pivots[key];
+   for(let q=0;q<3;q++){
+    const i=t+q;
+    b.P.push(pos.getX(i)-pv[0],pos.getY(i)-pv[1],pos.getZ(i)-pv[2]);
+    b.N.push(nrm.getX(i),nrm.getY(i),nrm.getZ(i));
+    b.U.push(uv.getX(i),uv.getY(i));
+   }
+  }
+ });
+ const mats=meshes.map(m=>charMat(m.mat));
+ const fig=new THREE.Group();
+ const made={};
+ for(const key of keys){
+  const list=buckets[key];
+  let total=0;for(const b of list)total+=b.P.length/3;
+  if(!total)continue;
+  const P=new Float32Array(total*3),N=new Float32Array(total*3),U=new Float32Array(total*2);
+  const geo=new THREE.BufferGeometry();
+  let at=0;
+  list.forEach((b,mi)=>{
+   const c=b.P.length/3;
+   if(!c)return;
+   P.set(b.P,at*3);N.set(b.N,at*3);U.set(b.U,at*2);
+   geo.addGroup(at,c,mi);
+   at+=c;
+  });
+  geo.setAttribute('position',new THREE.BufferAttribute(P,3));
+  geo.setAttribute('normal',new THREE.BufferAttribute(N,3));
+  geo.setAttribute('uv',new THREE.BufferAttribute(U,2));
+  const mesh=new THREE.Mesh(geo,mats);
+  mesh.castShadow=true;
+  mesh.position.set(pivots[key][0],pivots[key][1],pivots[key][2]);
+  fig.add(mesh);
+  made[key]=mesh;
+ }
+ if(!made.torso||!made.legL||!made.legR)return null;
+ fig.userData.limbs=[made.legL,made.legR,made.armL||null,made.armR||null];
+ fig.userData.torso=made.torso;
+ return fig;
+}
+
+async function getCharFigure(def){
+ if(charFigs[def.id])return charFigs[def.id];
+ let gltf=null;
+ try{gltf=await new Promise((ok,bad)=>gltfLoader.load(def.file,ok,undefined,bad))}catch(e){return null}
+ let fig=null;
+ try{fig=sliceTexturedCharacter(gltf.scene,def)}catch(e){console.warn('character '+def.id,e)}
+ if(!fig)return null;
+ charFigs[def.id]=fig;
+ return fig;
+}
+
+async function selectCharacter(id,quiet){
+ const def=CHARACTERS.find(c=>c.id===id);
+ if(!def||charBusy)return false;
+ charBusy=true;
+ /* the model is a download plus a slice - a second or two on a phone - so the
+    card pulses until the person is actually there */
+ const cards=document.querySelectorAll('.chCard[data-id="'+id+'"]');
+ for(const el of cards)el.classList.add('loading');
+ try{
+  if(def.rigged){
+   if(!heroRigCache){
+    if(!await applyHeroCharacter())return false;
+   }else{
+    while(playerMesh.children.length)playerMesh.remove(playerMesh.children[0]);
+    playerMesh.add(heroRigCache.holder);
+    addBlob(playerMesh,1.05);
+    heroRig=heroRigCache;
+    legL=legR=armL=armR=null;
+   }
+  }else{
+   const fig=await getCharFigure(def);
+   if(!fig)return false;
+   while(playerMesh.children.length)playerMesh.remove(playerMesh.children[0]);
+   playerMesh.add(fig);
+   addBlob(playerMesh,1.05);
+   heroRig=null;
+   const L=fig.userData.limbs;
+   legL=L[0];legR=L[1];armL=L[2];armR=L[3];
+  }
+  playerMesh.rotation.x=0;playerMesh.position.y=0;
+  charId=def.id;
+  try{localStorage.setItem(CHAR_KEY,def.id)}catch(e){}
+  syncCharCards();
+  if(!quiet)toast('Now playing as '+def.label+(def.note?' ('+def.note+')':''),'cash');
+  return true;
+ }finally{
+  charBusy=false;
+  for(const el of cards)el.classList.remove('loading');
+ }
+}
+
+function buildCharCards(){
+ const html=CHARACTERS.map(c=>
+  '<button class="chCard" data-id="'+c.id+'" type="button"><span class="chImg"><img alt="'+c.label+'"'+
+  ' src="'+c.thumb+'" draggable="false"></span><b>'+c.label+'</b><em>'+(c.note||'&nbsp;')+'</em></button>').join('');
+ for(const id of ['charCardsTitle','charCardsMenu']){
+  const box=$(id);
+  if(!box)continue;
+  box.innerHTML=html;
+  box.addEventListener('click',e=>{
+   const el=e.target.closest('.chCard');
+   if(!el)return;
+   /* the title overlay starts the game on any click; picking a face must not */
+   e.stopPropagation();
+   selectCharacter(el.dataset.id);
+  });
+ }
+ syncCharCards();
+}
+function syncCharCards(){
+ for(const el of document.querySelectorAll('.chCard'))el.classList.toggle('on',el.dataset.id===charId);
+}
+
+async function initCharacterSelect(){
+ let want=null;
+ try{want=localStorage.getItem(CHAR_KEY)}catch(e){}
+ if(want&&want!=='cyber'&&CHARACTERS.some(c=>c.id===want))await selectCharacter(want,true);
+ syncCharCards();
+}
+/* The cards are static (name + pre-rendered picture), so they go up now and
+   are interactive while everything else is still loading. */
+buildCharCards();
+/* ================= /CHARACTER SELECT ================= */
+
 /* ================= GENERATED VEHICLE MESHES =================
    Hunyuan3D-2 mini, shape only. Each arrives as ONE closed shell with no
    normals, no UVs and no material - wheels included in the body - normalised so
@@ -6630,7 +7211,13 @@ const CAR_DIMS={
  car_muscle  :{l:4.90,w:1.96,h:1.36,r:.35},
  car_sport   :{l:4.40,w:1.94,h:1.28,r:.33},
  car_suv     :{l:4.75,w:1.98,h:1.76,r:.38},
- car_taxi    :{l:4.82,w:1.88,h:1.52,r:.33}
+ car_taxi    :{l:4.82,w:1.88,h:1.52,r:.33},
+ /* the two newer TRELLIS bodies and the two multi-part models, from the Godot
+    build's roster so the two editions agree on what a car measures */
+ car_new_a   :{l:4.68,w:1.84,h:1.44,r:.34},
+ car_new_b   :{l:4.90,w:1.90,h:1.50,r:.35},
+ car_f150    :{l:5.89,w:2.03,h:1.97,r:.42},
+ car_police_new:{l:4.95,w:1.92,h:1.48,r:.34}
 };
 /* Which way round a prepared shell is modelled.
 
@@ -6647,7 +7234,7 @@ const CAR_DIMS={
    drawn along the game's +Z, looking for a grille and headlights at the arrow
    end. Six of the seven models - these five plus the two Sketchfab cars -
    put their front at +Z. car_sport puts its tail there. */
-const CAR_BACKWARDS=new Set(['car_sport']);
+const CAR_BACKWARDS=new Set(['car_sport','car_new_b']);
 const gltfLoader=new GLTFLoader();
 function loadMesh(name){
  return new Promise(res=>{
@@ -7061,23 +7648,33 @@ const TRELLIS_CARS=[
  ['car_muscle','Muscle'],
  ['car_sport','GT'],
  ['car_suv','Crossover'],
- ['car_taxi','Cab']
+ ['car_taxi','Cab'],
+ /* the newer scans, with the Godot build's handling class each. (car_t1..t5
+    in the Godot assets are the same five scans as the five above, kept at
+    95k triangles - not new cars - so they are not repeated here.) */
+ ['car_new_a','Saloon',   {grip:9.4, pw:10.2,max:43}],
+ ['car_new_b','Cruiser',  {grip:9.0, pw:10.8,max:44}]
 ];
 async function applyTrellisCars(){
  if(!VEHICLES.length)return 0;
  const donor=VEHICLES.find(v=>v.geoLow)||VEHICLES[0];
  if(!donor||!donor.geoLow)return 0;
  let got=0;
- const loaded=await Promise.all(TRELLIS_CARS.map(async([file,label])=>{
+ /* the two newest scans are 28-30k triangles each (the older five are 20-25k),
+    and 3.7 MB of download; a phone goes without them */
+ const list=TRELLIS_CARS.filter(([f])=>!(PHONE&&(f==='car_new_a'||f==='car_new_b')));
+ const loaded=await Promise.all(list.map(async([file,label,hd])=>{
   if(VEHICLES.find(v=>v.name===label))return null;
   const r=await loadTrellisCar(file);
-  return r?{label,r}:null;
+  return r?{label,r,hd,file}:null;
  }));
  for(const item of loaded){
   if(!item)continue;
-  const {label,r}=item;
+  const {label,r,hd,file}=item;
+  const D=CAR_DIMS[file]||{};
   VEHICLES.push({
    name:label, pack:false, generated:true, trellis:true,
+   handling:hd?{l:D.l,w:D.w,h:D.h,grip:hd.grip,pw:hd.pw,max:hd.max}:undefined,
    geoBody:r.geo, geoHi:r.geo,
    /* the baked material IS the car - makeCar must not repaint it */
    trellisMat:r.mat,
@@ -7088,6 +7685,194 @@ async function applyTrellisCars(){
    trellisWheels:r.wheels,
    wheelSpec:r.wheels?r.wheels.map(q=>({x:q.x,y:q.y,z:q.z,r:q.r})):null,
    /* distance + parked fallback, borrowed rather than generated */
+   geoLow:donor.geoLow, geoCabLow:donor.geoCabLow, geoCab:donor.geoCab,
+   geoWheel:donor.geoWheel, geoLampF:null, geoLampR:null,
+   wheel:r.dims.r, axle:r.dims.l*.34
+  });
+  got++;
+ }
+ return got;
+}
+
+/* ================= PART CARS (F-150, police car) =================
+   The TRELLIS scans are one welded mesh with one baked texture. These two are
+   the opposite: modelled the way a game artist builds a car, as dozens of
+   separate meshes - paint, chrome, glass, lamps, and the wheels as meshes of
+   their own, each with its own material.
+
+   So nothing here is carved or guessed. The wheel parts are found by name,
+   grouped into four corners by where they sit, and re-centred on their hubs so
+   they spin; everything else is merged into ONE geometry with a group per
+   material, which keeps the body a single Mesh and lets the distance-LOD swap
+   it for the cheap silhouette exactly as it does for every other car. */
+const PART_CARS=[
+ {file:'car_f150',       name:'F-150',  hd:{grip:7.8, pw:10.4,max:40}, heavy:true},
+ {file:'car_police_new', name:'Police', hd:{grip:10.4,pw:11.5,max:41}, cop:true}
+];
+/* word-boundary so "carpaint" or "trim" never reads as a rim, and lamps whose
+   name contains "brake" (brake lights) are not mistaken for brake discs */
+const PART_WHEELISH=/(^|[^a-z])(wheel|tire|tyre|rim|brake|caliper|disc)/i;
+const PART_NOT_WHEEL=/light|glow|lamp/i;
+
+/* The F-150 ships with fifteen materials, a dozen of which are just a flat
+   colour (plastic, trim, number plate, chrome, rim finish). Each is a draw
+   call, and a pickup near the camera was costing about thirty. Flat-colour
+   parts are folded into a shared pair of materials with the colour written
+   into the vertices, which keeps the look and leaves the textured parts, the
+   paint and the glass alone. */
+const _solidMat=new THREE.MeshStandardMaterial({vertexColors:true,roughness:.52,metalness:.18,envMapIntensity:1.0});
+const _chromeMat=new THREE.MeshStandardMaterial({vertexColors:true,roughness:.18,metalness:.95,envMapIntensity:1.5});
+function mergePartGroups(list){
+ const bucket=p=>{
+  const m=p.mat;
+  if(m.map||m.transparent||m.opacity<1||m.clearcoat>0)return m;     /* keeps its own */
+  return /chrome|rim_color/i.test(p.tag||'')?_chromeMat:_solidMat;
+ };
+ const byMat=new Map();
+ for(const p of list){
+  const key=bucket(p);
+  let a=byMat.get(key);
+  if(!a)byMat.set(key,a=[]);
+  a.push({geo:p.geo,col:key===_solidMat||key===_chromeMat?p.mat.color:null});
+ }
+ let total=0;
+ for(const a of byMat.values())for(const e of a)total+=e.geo.attributes.position.count;
+ const P=new Float32Array(total*3),N=new Float32Array(total*3),U=new Float32Array(total*2),C=new Float32Array(total*3).fill(1);
+ const mats=[],groups=[];
+ let at=0;
+ for(const [mat,items] of byMat){
+  const start=at;
+  for(const {geo:g,col} of items){
+   const c=g.attributes.position.count;
+   P.set(g.attributes.position.array,at*3);
+   N.set(g.attributes.normal.array,at*3);
+   U.set(g.attributes.uv.array,at*2);
+   if(col)for(let i=0;i<c;i++){C[(at+i)*3]=col.r;C[(at+i)*3+1]=col.g;C[(at+i)*3+2]=col.b}
+   at+=c;
+  }
+  groups.push({start,count:at-start,materialIndex:mats.length});
+  mats.push(mat);
+ }
+ const out=new THREE.BufferGeometry();
+ out.setAttribute('position',new THREE.BufferAttribute(P,3));
+ out.setAttribute('normal',new THREE.BufferAttribute(N,3));
+ out.setAttribute('uv',new THREE.BufferAttribute(U,2));
+ out.setAttribute('color',new THREE.BufferAttribute(C,3));
+ for(const g of groups)out.addGroup(g.start,g.count,g.materialIndex);
+ return {geo:out,mats};
+}
+
+/* The loader hands over plain glTF materials. Two are worth improving: paint
+   gets a clearcoat so it catches the sky like paint, and anything see-through
+   must not write depth or the glasshouse punches holes in the interior. */
+const _partPaint={};
+function polishPartMaterial(m){
+ let out=m;
+ if(/paint/i.test(m.name||'')&&!m.map){
+  /* the model carries the same paint as several separate materials; one per
+     colour is all that is needed, and each one is a draw call */
+  const k=m.color.getHex();
+  out=_partPaint[k]||(_partPaint[k]=new THREE.MeshPhysicalMaterial({color:m.color.clone(),roughness:.28,metalness:.35,
+   envMapIntensity:1.25,clearcoat:.8,clearcoatRoughness:.08}));
+  return out;
+ }else{
+  out.envMapIntensity=1.1;
+ }
+ if(m.map)m.map.colorSpace=THREE.SRGBColorSpace;
+ if(m.transparent||m.opacity<1){out.transparent=true;out.depthWrite=false;out.side=THREE.FrontSide}
+ return out;
+}
+
+function buildPartCar(root,file){
+ const D=CAR_DIMS[file]||{l:CAR_LEN,w:1.9,h:1.5,r:.34};
+ root.updateMatrixWorld(true);
+ const parts=[];
+ root.traverse(o=>{
+  if(!o.isMesh||!o.geometry||!o.geometry.attributes.position)return;
+  let g=o.geometry.clone();
+  if(g.index)g=g.toNonIndexed();
+  if(!g.attributes.normal)g.computeVertexNormals();
+  if(!g.attributes.uv)g.setAttribute('uv',new THREE.Float32BufferAttribute(new Float32Array(g.attributes.position.count*2),2));
+  for(const k of Object.keys(g.attributes))if(k!=='position'&&k!=='normal'&&k!=='uv')g.deleteAttribute(k);
+  g.applyMatrix4(o.matrixWorld);
+  const m0=Array.isArray(o.material)?o.material[0]:o.material;
+  parts.push({geo:g,mat:polishPartMaterial(m0),tag:o.name+' '+(m0.name||'')});
+ });
+ if(!parts.length)return null;
+ const boxAll=()=>{const b=new THREE.Box3();for(const p of parts){p.geo.computeBoundingBox();b.union(p.geo.boundingBox)}return b};
+ let bb=boxAll(),size=bb.getSize(new THREE.Vector3());
+ if(size.x>size.z){for(const p of parts)p.geo.rotateY(Math.PI/2);bb=boxAll();size=bb.getSize(new THREE.Vector3())}
+ if(CAR_BACKWARDS.has(file)){for(const p of parts)p.geo.rotateY(Math.PI);bb=boxAll()}
+ const k=D.l/Math.max(size.z,1e-6);
+ for(const p of parts)p.geo.scale(k,k,k);
+ bb=boxAll();
+ const ctr=bb.getCenter(new THREE.Vector3());
+ for(const p of parts)p.geo.translate(-ctr.x,-bb.min.y,-ctr.z);
+ bb=boxAll();size=bb.getSize(new THREE.Vector3());
+
+ const isWheel=p=>PART_WHEELISH.test(p.tag)&&!PART_NOT_WHEEL.test(p.tag);
+ /* brake calipers and discs are a few dozen triangles behind a spoked rim -
+    invisible at any distance a car is seen from, and each is a draw call */
+ const isBrake=p=>/caliper|brake/i.test(p.tag)&&!PART_NOT_WHEEL.test(p.tag);
+ const wheelish=parts.filter(p=>isWheel(p)&&!isBrake(p)),body=parts.filter(p=>!isWheel(p));
+ const centre=p=>p.geo.boundingBox.getCenter(new THREE.Vector3());
+ const wheels=[];
+ if(wheelish.length>=4){
+  const zMid=wheelish.reduce((s,p)=>s+centre(p).z,0)/wheelish.length;
+  /* front pair first - stepCar() steers wheels[0] and wheels[1] */
+  const quads=[[1,1],[-1,1],[1,-1],[-1,-1]].map(([sx,fz])=>({sx,front:fz>0,list:[]}));
+  for(const p of wheelish){
+   const c=centre(p);
+   quads.find(q=>q.sx===(c.x<0?-1:1)&&q.front===(c.z>=zMid)).list.push(p);
+  }
+  if(quads.every(q=>q.list.length)){
+   for(const q of quads){
+    const b=new THREE.Box3();
+    for(const p of q.list)b.union(p.geo.boundingBox);
+    const hub=b.getCenter(new THREE.Vector3());
+    const r=(b.max.y-b.min.y)/2;
+    for(const p of q.list)p.geo.translate(-hub.x,-hub.y,-hub.z);
+    const mg=mergePartGroups(q.list);
+    wheels.push({geo:mg.geo,mats:mg.mats,x:hub.x,y:hub.y,z:hub.z,r,front:q.front});
+   }
+  }else body.push(...wheelish);
+ }else body.push(...wheelish);
+ const mg=mergePartGroups(body);
+ return {geo:mg.geo,mats:mg.mats,wheels:wheels.length===4?wheels:null,
+         dims:{l:size.z,w:size.x,h:size.y,r:wheels.length===4?wheels[0].r:D.r}};
+}
+
+function loadPartCar(cfg){
+ return new Promise(res=>{
+  gltfLoader.load('meshes/'+cfg.file+'.glb',g=>{
+   try{res(buildPartCar(g.scene,cfg.file))}
+   catch(e){console.warn('part car '+cfg.file,e);res(null)}
+  },undefined,()=>res(null));
+ });
+}
+
+async function applyPartCars(){
+ if(!VEHICLES.length)return 0;
+ const donor=VEHICLES.find(v=>v.geoLow)||VEHICLES[0];
+ if(!donor||!donor.geoLow)return 0;
+ let got=0;
+ const loaded=await Promise.all(PART_CARS.map(async cfg=>{
+  if(VEHICLES.find(v=>v.name===cfg.name))return null;
+  const r=await loadPartCar(cfg);
+  return r?{cfg,r}:null;
+ }));
+ for(const it of loaded){
+  if(!it)continue;
+  const {cfg,r}=it,D=CAR_DIMS[cfg.file];
+  VEHICLES.push({
+   name:cfg.name, pack:false, generated:true, parts:true,
+   /* a patrol car is stolen, not bought: it stays out of traffic and the
+      parked rows, and cops are the ones who drive it */
+   spawnOnly:!!cfg.cop||(PHONE&&!!cfg.heavy), copCar:!!cfg.cop,
+   geoBody:r.geo, geoHi:r.geo, partMats:r.mats, partWheels:r.wheels,
+   wheelSpec:r.wheels?r.wheels.map(q=>({x:q.x,y:q.y,z:q.z,r:q.r})):null,
+   dims:r.dims, wheelR:r.dims.r,
+   handling:{l:D.l,w:D.w,h:D.h,grip:cfg.hd.grip,pw:cfg.hd.pw,max:cfg.hd.max},
    geoLow:donor.geoLow, geoCabLow:donor.geoCabLow, geoCab:donor.geoCab,
    geoWheel:donor.geoWheel, geoLampF:null, geoLampR:null,
    wheel:r.dims.r, axle:r.dims.l*.34
@@ -7231,6 +8016,9 @@ function splitCarMaterials(geo){
    geometry swap rebinds GPU buffers. The 18m gap means a car has to genuinely
    travel before it changes LOD. */
 const LOD_NEAR=95,LOD_FAR=113;
+/* A part-car's (or the named Sketchfab cars') four wheels are up to twelve draws; they are a few pixels wide
+   past this range, so they are dropped well before the body is. */
+const PART_WHEEL_RANGE=42;
 function updateCarLOD(){
  for(const c of cars){
   if(c.gone||!c.m)continue;
@@ -7239,12 +8027,18 @@ function updateCarLOD(){
   const d=Math.hypot(c.x-player.x,c.z-player.z);
   const was=c.m.userData.hi;
   const near=(c===player.car)||(was?d<LOD_FAR:d<LOD_NEAR);
+  /* a part-car's wheels have their own, shorter range, so this runs before the
+     early-out below: the body can stay 'near' for another 50m after they go */
+  if((V.parts||V.named)&&c.m.userData.wheels){
+   const wn=near&&(c===player.car||d<PART_WHEEL_RANGE);
+   if(wn!==c.m.userData.wn){c.m.userData.wn=wn;for(const w of c.m.userData.wheels)w.visible=wn}
+  }
   if(near===was)continue;
   c.m.userData.hi=near;
   /* Wheels, glass and light housings are seven extra draws a car that resolve
      to nothing at this range. Past the LOD line only the silhouette is left. */
   const wh=c.m.userData.wheels;
-  if(wh)for(const w of wh)w.visible=near;
+  if(wh&&!(V.parts||V.named))for(const w of wh)w.visible=near;
   for(const ch of c.m.children){
    const u=ch.userData;
    if(u&&(u.liner||u.glass||u.optics))ch.visible=near;
@@ -7259,6 +8053,8 @@ function updateCarLOD(){
    /* near: the modelled material set. far: the borrowed silhouette, which has
       neither the groups nor the UVs those materials need. */
    body.material=near?V.bodyMats:(bodyMats[c.color]||copBodyMat);
+  }else if(V.parts){
+   body.material=near?V.partMats:(c.type==='cop'?copBodyMat:(bodyMats[c.color]||copBodyMat));
   }else if(V.trellis){
    /* Near, the baked texture. Far, the borrowed silhouette has no UVs for it
       to sample, so fall back to flat paint - which is all that reads at 95m. */
@@ -7543,7 +8339,7 @@ async function applyCarPack(){
  return true;
 }
 
-/* A helicopter parked on a side street, or a tank in the traffic queue, is not
+/* A tank in the traffic queue is not
    scenery - it is a bug. Anything flagged spawnOnly exists only when somebody
    asks for it from the spawn menu. */
 function roadVehicleIndex(){
@@ -7567,8 +8363,8 @@ function rebuildAllCars(reroll){
   if(reroll&&!wasPlayer&&!(VEHICLES[c.kind]&&VEHICLES[c.kind].spawnOnly))c.kind=roadVehicleIndex();
   scene.remove(c.m);
   c.m=makeCar(c.color||'#c8c8c8',c.type==='cop',c.kind);
-  c.heli=!!c.m.userData.isHeli;c.tank=!!c.m.userData.isTank;
-  c.m.position.set(c.x,c.alt||0,c.z);c.m.rotation.y=c.h;
+  c.tank=!!c.m.userData.isTank;
+  c.m.position.set(c.x,0,c.z);c.m.rotation.y=c.h;
   if(c.dead&&c.m.userData.body&&c.m.userData.body.material!==undefined)
    c.m.userData.body.material=wreckMat;
   scene.add(c.m);
@@ -7763,32 +8559,28 @@ async function applyVehicleMeshes(){
     why they were never in the game: the pack has never failed. */
  const tn=await applyTrellisCars();
  const nn=await applyNamedCars();
- const an=await applyAircraft();
+ const pc=await applyPartCars();
+ const an=PHONE?0:await applyAircraft();
  const fl=applyRememberedFlips();
  /* everything is registered now, so re-deal - see rebuildAllCars */
  rebuildAllCars(true);
  if(fl)toast(fl+' vehicle'+(fl>1?'s':'')+' turned round (remembered)');
  toast(VEHICLES.length+' vehicles loaded'
-   +(tn?' (+'+tn+' TRELLIS)':'')+(nn?' (+'+nn+' modelled)':'')
-   +(an?' (+'+an+' aircraft)':''),'cash');
+   +(tn?' (+'+tn+' TRELLIS)':'')+(nn+pc?' (+'+(nn+pc)+' modelled)':'')
+   +(an?' (+'+an+' tank)':''),'cash');
 })();
 applyCharacters();
+applyPlantPack();
 loadRadio();
-/* ================= HELICOPTER AND TANK =================
-   Both are Sketchfab models with awkward shapes for this codebase.
-
-   The helicopter arrives as ONE mesh with no rotor node, so the blades cannot
-   simply be found by name and spun. They can be found by where they are:
-   measuring the model in bands down its height, the top fifth spans 37 units
-   across while everything below it collapses to about 7. That is the rotor
-   disc and the fuselage, unambiguously, so the split is a height threshold.
+/* ================= TANK =================
+   A Sketchfab model with an awkward shape for this codebase.
 
    The tank arrives as 26 nodes, and the turret has to turn independently of
    the hull or it is a lump. Its parts are identified by sitting above the hull
    deck and within the turret ring, which survives the meaningless node names
    (Object09_24 and friends). */
 
-const HELI_LEN=13.4, TANK_LEN=9.8;
+const TANK_LEN=9.8;
 
 /* Split one merged geometry in two by a per-triangle test. Returns
    {a,b} - triangles that passed, and triangles that did not. */
@@ -7838,41 +8630,6 @@ function boxOf(parts){
  const bb=new THREE.Box3();
  for(const p of parts){p.geo.computeBoundingBox();bb.union(p.geo.boundingBox)}
  return bb;
-}
-
-/* ---- helicopter ---- */
-function loadHelicopter(){
- return new Promise(res=>{
-  gltfLoader.load('meshes/helicopter.glb',gltf=>{
-   const parts=flattenGLB(gltf.scene);
-   if(!parts.length)return res(null);
-   let bb=boxOf(parts), size=bb.getSize(new THREE.Vector3());
-   /* nose along +Z like every other vehicle */
-   if(size.x>size.z){for(const p of parts)p.geo.rotateY(Math.PI/2);bb=boxOf(parts);size=bb.getSize(new THREE.Vector3())}
-   const k=HELI_LEN/Math.max(size.z,1e-6);
-   for(const p of parts)p.geo.scale(k,k,k);
-   bb=boxOf(parts);
-   const ctr=bb.getCenter(new THREE.Vector3());
-   for(const p of parts)p.geo.translate(-ctr.x,-bb.min.y,-ctr.z);
-   bb=boxOf(parts);
-   const H=bb.max.y-bb.min.y;
-   /* The measured cut: rotor above, airframe below. */
-   const yCut=bb.max.y-H*0.19;
-   const bodyParts=[], rotorParts=[];
-   for(const p of parts){
-    const s=splitGeoBy(p.geo,(x,y)=>y>yCut);
-    if(s.a.attributes.position.count)rotorParts.push({geo:s.a,mat:p.mat});
-    if(s.b.attributes.position.count)bodyParts.push({geo:s.b,mat:p.mat});
-   }
-   if(!rotorParts.length){res({parts,rotor:null,dims:{l:HELI_LEN,w:size.x*k,h:H}});return}
-   /* the rotor turns about its own hub, so move it to the origin and hang it
-      back at the right height when the group is built */
-   const rbb=boxOf(rotorParts);
-   const hub=new THREE.Vector3((rbb.max.x+rbb.min.x)/2,0,(rbb.max.z+rbb.min.z)/2);
-   for(const p of rotorParts)p.geo.translate(-hub.x,0,-hub.z);
-   res({parts:bodyParts,rotor:rotorParts,hub,dims:{l:HELI_LEN,w:size.x*k,h:H}});
-  },undefined,()=>res(null));
- });
 }
 
 /* ---- tank ---- */
@@ -7939,28 +8696,6 @@ function mergeParts(parts,fallbackColor){
 
 async function applyAircraft(){
  let n=0;
- const heli=await loadHelicopter();
- if(heli){
-  VEHICLES.push({
-   name:'Helicopter', spawnOnly:true, heli:true,
-   dims:heli.dims, wheelR:.3, wheel:.3, axle:heli.dims.l*.3,
-   handling:{l:heli.dims.l,w:heli.dims.w,h:heli.dims.h,grip:6,pw:9,max:60},
-   build:(col)=>{
-    const g=new THREE.Group();
-    g.rotation.order='YXZ';
-    g.add(mergeParts(heli.parts,0x39424d));
-    if(heli.rotor){
-     const rg=mergeParts(heli.rotor,0x2b3238);
-     rg.position.set(heli.hub.x,0,heli.hub.z);
-     g.add(rg);
-     g.userData.rotor=rg;
-    }
-    g.userData.body={material:null};
-    return g;
-   }
-  });
-  n++;
- }
  const tank=await loadTank();
  if(tank){
   VEHICLES.push({
@@ -7984,47 +8719,6 @@ async function applyAircraft(){
   n++;
  }
  return n;
-}
-
-/* ================= FLIGHT =================
-   Deliberately not a new player mode. Staying inside 'drive' means the camera,
-   the HUD, entering and leaving, the map and every touch control keep working
-   exactly as they already do - the only thing that changes is what moves the
-   vehicle each frame. */
-const HELI_MAX_ALT=120;
-function stepHeli(c,thr,steer,lift,dt){
- c.alt=c.alt||0;
- c.rotorRpm=c.rotorRpm||0;
- /* the rotor has to be up to speed before it will leave the ground, which is
-    most of what makes a helicopter feel like one rather than a floating car */
- const wantRpm=lift||c.alt>.05?1:(thr?.55:.25);
- c.rotorRpm+=(wantRpm-c.rotorRpm)*Math.min(1,dt*.85);
- const power=Math.max(0,c.rotorRpm-.55)/.45;
- const climb=lift?18*power:(c.alt>0?-11:0);
- c.alt=clamp(c.alt+climb*dt,0,HELI_MAX_ALT);
- /* yaw straight from the stick - a tail rotor turns you on the spot */
- c.h-=steer*1.5*dt*(0.35+power*0.65);
- /* forward speed: nose-down thrust, with air drag rather than tyre grip */
- c.vf=(c.vf||0)+thr*17*power*dt;
- c.vf*=Math.pow(.62,dt);
- if(c.alt<.05&&c.vf>6)c.vf=6;               /* no taxiing at 60mph */
- const fX=Math.sin(c.h),fZ=Math.cos(c.h);
- c.vx=fX*c.vf;c.vz=fZ*c.vf;
- c.x+=c.vx*dt;c.z+=c.vz*dt;
- c.sp=Math.abs(c.vf);
- /* lean into it, and roll into the turn */
- c.pit=lerp(c.pit||0,clamp(-c.vf*.012,-.30,.30),Math.min(1,dt*3));
- c.roll=lerp(c.roll||0,clamp(steer*.34*power,-.34,.34),Math.min(1,dt*3));
- /* the ground is the only thing it collides with once airborne */
- if(c.alt<2.2){
-  const pr={x:c.x,z:c.z,vx:c.vx,vz:c.vz};
-  collideStatic(pr,Math.max(1.6,c.m?c.m.userData.wid*.5:1.6));
-  c.x=pr.x;c.z=pr.z;
- }
- const lim=GS/2-6;
- c.x=clamp(c.x,-lim,lim);c.z=clamp(c.z,-lim,lim);
- if(c.m&&c.m.userData.rotor)c.m.userData.rotor.rotation.y+=dt*c.rotorRpm*34;
- syncCar(c);
 }
 
 /* ================= TANK GUN =================
@@ -8139,20 +8833,13 @@ function tick(now){
   if(player.mode==='drive'){
    const c=player.car;
    if(c.reload>0)c.reload-=dt;
-   if(c.heli){
-    /* the handbrake doubles as the collective: hold it to climb, let go to
-       settle. One control, and it is already bound on keyboard and touch. */
-    stepHeli(c,ctl.thr,ctl.steer,ctl.hand,dt);
-    player.x=c.x;player.z=c.z;
-   }else{
-    stepCar(c,ctl.thr,ctl.steer,ctl.hand,dt);
-    const e=carExtents(c);const imp=collideStatic(c,e[0],e[1],carOBB(c));
-    if(imp>4){c.hp-=imp*2;sfxCrash(imp);camShake=Math.min(.5,imp*.03)}
-    if(c.hp<=0&&!c.dead)killCar(c);
-    if(!c.dead)syncCar(c);
-    player.x=c.x;player.z=c.z;
-    if(c.sp>18&&c.slip>4.5)camShake=Math.max(camShake,Math.min(.09,c.slip*.006));
-   }
+   stepCar(c,ctl.thr,ctl.steer,ctl.hand,dt);
+   const e=carExtents(c);const imp=collideStatic(c,e[0],e[1],carOBB(c));
+   if(imp>4){c.hp-=imp*2;sfxCrash(imp);camShake=Math.min(.5,imp*.03);buzz(Math.min(70,imp*6))}
+   if(c.hp<=0&&!c.dead)killCar(c);
+   if(!c.dead)syncCar(c);
+   player.x=c.x;player.z=c.z;
+   if(c.sp>18&&c.slip>4.5)camShake=Math.max(camShake,Math.min(.09,c.slip*.006));
   }else{
    updateFoot(dt);
   }
@@ -8162,10 +8849,6 @@ function tick(now){
   updateCops(dt);
   updateMission(dt);
   for(let i=0;i<cars.length;i++){
-   /* Rotors turn whether or not anyone is flying it - a parked helicopter with
-      a dead rotor looks broken, and the player's own is driven by stepHeli. */
-   if(cars[i].heli&&cars[i].m&&cars[i].m.userData.rotor&&player.car!==cars[i])
-    cars[i].m.userData.rotor.rotation.y+=dt*2.2;
    if(cars[i].gone)continue;
    for(let j=i+1;j<cars.length;j++){
     if(cars[j].gone)continue;

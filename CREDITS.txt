@@ -33,6 +33,21 @@ COMMERCIAL USE PERMITTED (CC BY 4.0 - credit required)
   Ten bodies (Compact, Coupe, Hatchback, Minivan, Offroad, Pickup, Sedan,
   Sport, SUV, Wagon) plus eight wheel sets.
 
+"Police_car" (https://skfb.ly/ps6Tt) by constrixstudios
+  licensed under CC BY 4.0 (http://creativecommons.org/licenses/by/4.0/)
+  file: car_police_new.glb, meshes/car_police_new.glb (from police_car.glb)
+  Decimated from 256,420 triangles to 18,337 - see pipeline/optimize_new_cars.mjs
+
+"Tow Boat" (https://skfb.ly/6WR98) by BoatUS Foundation
+  licensed under CC BY 4.0 (http://creativecommons.org/licenses/by/4.0/)
+  file: godot/assets/boat_tow.glb (from tow_boat.glb)
+  Decimated 146,779 -> 15,886 triangles - see pipeline/optimize_boats.mjs
+
+"Low poly trees, flowers and grass" (https://skfb.ly/oqFSu) by MMC Works
+  licensed under CC BY 4.0 (http://creativecommons.org/licenses/by/4.0/)
+  file: low_poly_trees_flowers_and_grass.glb, meshes/plants.glb (web copy)
+  Five stylized trees, grass bushes, daisies, daffodils and ground plants.
+
 "Low-poly City Buildings" (https://skfb.ly/oMrLu) by smooth998
   licensed under CC BY 4.0 (http://creativecommons.org/licenses/by/4.0/)
   file: low-poly_city_buildings.glb
@@ -61,6 +76,22 @@ COMMERCIAL USE PERMITTED (CC BY 4.0 - credit required)
 
 NON-COMMERCIAL ONLY - DO NOT SHIP IN A PAID BUILD
 --------------------------------------------------
+
+"Boat "Josefa"" (https://skfb.ly/6GCS6) by Alexandre Gonzalez Rivas
+  licensed under CC BY-NC 4.0 (http://creativecommons.org/licenses/by-nc/4.0/)
+  file: godot/assets/boat_wreck.glb (from boat_josefa.glb)
+  Decimated 62,336 -> 10,527 triangles - see pipeline/optimize_boats.mjs
+  NC forbids commercial use.
+
+"2015 Ford F-150 Lariat Super Cab" (https://skfb.ly/pF8xx) by Ddiaz Design
+  licensed under CC BY-NC-SA 4.0
+  (http://creativecommons.org/licenses/by-nc-sa/4.0/)
+  file: godot/assets/car_f150.glb, meshes/car_f150.glb (web copy)
+  Modified: decimated 32,057 -> 16,687 triangles, textures recompressed to
+  WebP at 512px. See pipeline/optimize_new_cars.mjs.
+  NC forbids commercial use. SA additionally requires that this modified
+  version be offered under the same CC BY-NC-SA 4.0 terms - so if the project
+  is redistributed, this model's licence travels with it.
 
 "Grungy Little Car" (https://skfb.ly/o8Vy6) by Renafox (kryik1023)
   licensed under CC BY-NC 4.0 (http://creativecommons.org/licenses/by-nc/4.0/)
@@ -114,3 +145,16 @@ Creative Commons Attribution (http://creativecommons.org/licenses/by/4.0/).
 
 "Police" (https://skfb.ly/6UrnX) by Tech developers is licensed under
 Creative Commons Attribution (http://creativecommons.org/licenses/by/4.0/).
+
+--- Web edition: character select ----------------------------------------
+
+"Duke nukem female npc" (https://sketchfab.com/3d-models/duke-nukem-female-npc-4f86221f1ce74767a4e3c90f414137c3)
+  by birdf5994 (https://sketchfab.com/birdf5994)
+  licensed under CC BY 4.0 (http://creativecommons.org/licenses/by/4.0/)
+  file: meshes/char_duke.glb  (playable as "Female 1")
+  Modified: textures recompressed to WebP at 1024px; skeleton unused.
+
+The "Person 2" and "Female 2" player models and the Saloon and Cruiser cars
+are TRELLIS generations made for this project (meshes/char_player.glb,
+meshes/char_hijab.glb, meshes/car_new_a.glb, meshes/car_new_b.glb); they were
+decimated and their textures recompressed by pipeline/optimize_web_assets.mjs.
