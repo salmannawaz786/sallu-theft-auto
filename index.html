@@ -526,7 +526,7 @@ const radioEl=$('radio'),rStationEl=$('rStation'),rTrackEl=$('rTrack');
    city of box cars. Every loader reports in here and the start prompt only
    appears once all of them are done. A slow or broken download cannot trap the
    player: after LOAD_PATIENCE seconds the prompt appears anyway. */
-const LOAD_PATIENCE=60;
+const LOAD_PATIENCE=150;
 const LOADING=(()=>{
  const T={textures:{w:5,p:0,label:'TEXTURES'},vehicles:{w:5,p:0,label:'CARS'},
           characters:{w:3,p:0,label:'PEOPLE'},plants:{w:1,p:0,label:'TREES'}};
