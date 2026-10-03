@@ -7,6 +7,20 @@ no build step — one HTML file and a folder of assets.
 
 ![Sallu Theft Auto](8fa06b9e-e3f8-4c70-9cf7-3536000239f4.jfif)
 
+## Screenshots
+
+Captured from the game itself on the ULTRA graphics tier.
+
+| | |
+|---|---|
+| ![Sunrise drive on the coast](screenshots/01-sunrise-drive.jpg) | ![Low sun and neon](screenshots/02-sunrise-light.jpg) |
+| ![The GT in the city](screenshots/03-city-garage-gt.jpg) | ![Audi e-tron GT](screenshots/10-etron.jpg) |
+| ![Ford F-150](screenshots/04-f150.jpg) | ![Sunset on the beach](screenshots/05-sunset-cast.jpg) |
+| ![Police pursuit at dusk](screenshots/06-police-chase.jpg) | ![Police lights behind a stolen car](screenshots/07-chase-lights.jpg) |
+| ![Tank](screenshots/08-tank.jpg) | ![The island](screenshots/09-title.jpg) |
+
+---
+
 ---
 
 ## The idea worth stealing
